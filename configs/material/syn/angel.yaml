@@ -1,9 +1,9 @@
-name: bell_material
+name: angel_material
 
 ####network#####
 network: material
-database_name: syn/bell
-mesh: data/meshes/bell_shape-300000.ply
+database_name: syn/angel
+mesh: data/meshes/angel_shape-300000.ply
 
 reg_diffuse_light: true
 reg_diffuse_light_lambda: 0.1
@@ -24,13 +24,13 @@ key_metric_name: psnr
 ####dataset#####
 train_dataset_type: dummy
 train_dataset_cfg:
-  database_name: syn/bell
+  database_name: syn/angel
 val_set_list:
   -
     name: val
     type: dummy
     cfg:
-      database_name: syn/bell
+      database_name: syn/angel
 
 ####trainier####
 optimizer_type: adam

@@ -1,5 +1,6 @@
 import cv2
 
+import raytracing
 import open3d
 import numpy as np
 import torch
@@ -649,10 +650,10 @@ class NeROMaterialRenderer(nn.Module):
         'train_ray_num': 512,
         'test_ray_num': 1024,
 
-        'database_name': 'real/bowl3/raw_1024',
+        'database_name': 'real/bear/raw_1024',
         'rgb_loss': 'charbonier',
 
-        'mesh': 'data/meshes/gn_bowl3_t4_d4-300000.ply',
+        'mesh': 'data/meshes/bear_shape-300000.ply',
 
         'shader_cfg': {},
 
@@ -664,7 +665,7 @@ class NeROMaterialRenderer(nn.Module):
     def __init__(self, cfg, is_train=True):
         self.cfg = {**self.default_cfg, **cfg}
         super().__init__()
-        self.warned_normal=False
+        self.warned_normal = False
         self._init_geometry()
         self._init_dataset(is_train)
         self._init_shader()
@@ -696,11 +697,16 @@ class NeROMaterialRenderer(nn.Module):
         self.cfg['shader_cfg']['is_real'] = self.cfg['database_name'].startswith('real')
         self.shader_network = MCShadingNetwork(self.cfg['shader_cfg'], lambda o,d: self.trace(o,d))
 
-    def trace_in_batch(self, rays_o, rays_d, batch_size=1024**2):
+    def trace_in_batch(self, rays_o, rays_d, batch_size=1024**2, cpu=False):
         inters, normals, depth, hit_mask = [], [], [], []
         rn = rays_o.shape[0]
         for ri in range(0, rn, batch_size):
             inters_cur, normals_cur, depth_cur, hit_mask_cur = self.trace(rays_o[ri:ri+batch_size], rays_d[ri:ri+batch_size])
+            if cpu:
+                inters_cur = inters_cur.cpu()
+                normals_cur = normals_cur.cpu()
+                depth_cur = depth_cur.cpu()
+                hit_mask_cur = hit_mask_cur.cpu()
             inters.append(inters_cur)
             normals.append(normals_cur)
             depth.append(depth_cur)
@@ -829,7 +835,8 @@ class NeROMaterialRenderer(nn.Module):
         shade_outputs['rgb_gt'] = rgb_gt
         shade_outputs['loss_rgb'] = self.compute_rgb_loss(shade_outputs['rgb_pr'],shade_outputs['rgb_gt'])
         if self.cfg['reg_mat']:
-            shade_outputs['loss_mat_reg'] = self.shader_network.material_regularization(pts, normals, shade_outputs['metallic'], shade_outputs['roughness'], shade_outputs['albedo'], step)
+            shade_outputs['loss_mat_reg'] = self.shader_network.material_regularization(
+                pts, normals, shade_outputs['metallic'], shade_outputs['roughness'], shade_outputs['albedo'], step)
         if self.cfg['reg_diffuse_light']:
             shade_outputs['loss_diffuse_light'] = self.compute_diffuse_light_regularization(shade_outputs['diffuse_light'])
 

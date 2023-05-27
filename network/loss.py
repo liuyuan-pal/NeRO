@@ -51,17 +51,7 @@ class MaterialRegLoss(Loss):
     def __call__(self, data_pr, data_gt, step, *args, **kwargs):
         outputs={}
         if 'loss_mat_reg' in data_pr: outputs['loss_mat_reg'] = data_pr['loss_mat_reg']
-        if 'loss_albedo_demo' in data_pr: outputs['loss_albedo_demo'] = data_pr['loss_albedo_demo']
         if 'loss_diffuse_light' in data_pr: outputs['loss_diffuse_light'] = data_pr['loss_diffuse_light']
-        if 'loss_env_light' in data_pr: outputs['loss_env_light'] = data_pr['loss_env_light']
-        if 'loss_light' in data_pr: outputs['loss_light'] = data_pr['loss_light']
-        if 'loss_chrom' in data_pr: outputs['loss_chrom'] = data_pr['loss_chrom']
-        if 'loss_mask' in data_pr: outputs['loss_mask'] = data_pr['loss_mask']
-        if 'loss_human_lights' in data_pr: outputs['loss_human_lights'] = data_pr['loss_human_lights']
-        if 'loss_outer' in data_pr: outputs['loss_outer'] = data_pr['loss_outer']
-        if 'loss_pair' in data_pr: outputs['loss_pair'] = data_pr['loss_pair']
-        if 'loss_ref' in data_pr: outputs['loss_ref'] = data_pr['loss_ref']
-        if 'loss_grad' in data_pr: outputs['loss_grad'] = data_pr['loss_grad']
         return outputs
 
 class StdRecorder(Loss):
@@ -93,8 +83,8 @@ class OccLoss(Loss):
 
     def __call__(self, data_pr, data_gt, step, *args, **kwargs):
         outputs={}
-        if 'loss_dist' in data_pr:
-            outputs['loss_dist'] = torch.mean(data_pr['loss_dist']).reshape(1)
+        if 'loss_occ' in data_pr:
+            outputs['loss_occ'] = torch.mean(data_pr['loss_occ']).reshape(1)
         return outputs
 
 class InitSDFRegLoss(Loss):

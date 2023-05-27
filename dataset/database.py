@@ -75,12 +75,16 @@ def crop_by_points(img, ref_points, pose, K, size):
 class GlossyRealDatabase(BaseDatabase):
     meta_info={
         'bear': {'forward': np.asarray([0.539944,-0.342791,0.341446],np.float32), 'up': np.asarray((0.0512875,-0.645326,-0.762183),np.float32),},
+        'coral': {'forward': np.asarray([0.004226,-0.235523,0.267582],np.float32), 'up': np.asarray((0.0477973,-0.748313,-0.661622),np.float32),},
+        'maneki': {'forward': np.asarray([-2.336584, -0.406351, 0.482029], np.float32), 'up': np.asarray((-0.0117387, -0.738751, -0.673876), np.float32), },
+        'bunny': {'forward': np.asarray([0.437076,-1.672467,1.436961],np.float32), 'up': np.asarray((-0.0693234,-0.644819,-.761185),np.float32),},
+        'vase': {'forward': np.asarray([-0.911907, -0.132777, 0.180063], np.float32), 'up': np.asarray((-0.01911, -0.738918, -0.673524), np.float32), },
     }
     def __init__(self, database_name):
         super().__init__(database_name)
         _, self.object_name, self.max_len = database_name.split('/')
 
-        self.root = f'data/glossy_real/{self.object_name}'
+        self.root = f'data/GlossyReal/{self.object_name}'
         self._parse_colmap()
         self._normalize()
         if not self.max_len.startswith('raw'):
@@ -103,8 +107,6 @@ class GlossyRealDatabase(BaseDatabase):
 
                 K = self.Ks[img_id]
                 self.Ks[img_id] = np.diag([rw,rh,1.0]) @ K
-
-        img_fn2img_id={v:k for k,v in self.image_names.items()}
 
     def _parse_colmap(self):
         if Path(f'{self.root}/cache.pkl').exists():
@@ -221,13 +223,12 @@ class GlossySyntheticDatabase(BaseDatabase):
     def __init__(self, database_name):
         super().__init__(database_name)
         _, model_name = database_name.split('/')
-        RENDER_ROOT='data/blender_render'
+        RENDER_ROOT='data/GlossySynthetic'
         self.root=f'{RENDER_ROOT}/{model_name}'
         self.img_num = len(glob.glob(f'{self.root}/*.pkl'))
         self.img_ids= [str(k) for k in range(self.img_num)]
         self.cams = [read_pickle(f'{self.root}/{k}-camera.pkl') for k in range(self.img_num)]
         self.scale_factor = 1.0
-        self.depth_range = np.asarray([2.0, 4.0], np.float32)
 
     def get_image(self, img_id):
         return imread(f'{self.root}/{img_id}.png')[...,:3]

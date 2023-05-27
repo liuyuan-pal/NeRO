@@ -693,17 +693,17 @@ def saturate_dot(v0,v1):
 
 class MCShadingNetwork(nn.Module):
     default_cfg={
-        'diffuse_sample_num': 64,
-        'specular_sample_num': 32,
+        'diffuse_sample_num': 512,
+        'specular_sample_num': 256,
         'human_lights': True,
-        'light_exp_max': 0.0,
+        'light_exp_max': 5.0,
         'inner_light_exp_max': 5.0,
         'outer_light_version': 'direction',
         'geometry_type': 'schlick',
 
         'reg_change': True,
         'change_eps': 0.05,
-        'change_type': 'constant',
+        'change_type': 'gaussian',
         'reg_lambda1': 0.005,
         'reg_min_max': True,
 
@@ -1095,6 +1095,7 @@ def extract_fields(bound_min, bound_max, resolution, query_func, batch_size=64, 
                     val[outside_mask]=outside_val
                     val = val.reshape(len(xs), len(ys), len(zs)).cpu().numpy()
                     u[xi * N: xi * N + len(xs), yi * N: yi * N + len(ys), zi * N: zi * N + len(zs)] = val
+    return u
 
 def extract_geometry(bound_min, bound_max, resolution, threshold, query_func, outside_val=1.0):
     u = extract_fields(bound_min, bound_max, resolution, query_func, outside_val=outside_val)

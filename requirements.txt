@@ -1,0 +1,11 @@
+tensorboardX
+pytorch==1.11.0
+numpy
+open3d==0.16.0
+mcubes
+plyfile
+h5py
+transforms3d
+tqdm
+opencv-python
+yaml
