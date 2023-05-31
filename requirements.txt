@@ -1,5 +1,5 @@
 tensorboardX
-pytorch==1.11.0
+torch==1.11.0
 numpy
 open3d==0.16.0
 mcubes
