@@ -9,3 +9,4 @@ transforms3d
 tqdm
 opencv-python
 pyyaml
+scikit-image

@@ -47,7 +47,7 @@ class ShapeRenderMetrics(Loss):
         # compute psnr
         rgb_pr = color_map_backward(data_pr['ray_rgb'].detach().cpu().numpy())  # h,w,3
         psnr = compute_psnr(rgb_gt, rgb_pr)
-        ssim = structural_similarity(rgb_gt, rgb_pr, win_size=11, multichannel=True, data_range=255)
+        ssim = structural_similarity(rgb_gt, rgb_pr, win_size=11, channel_axis=2, data_range=255)
         outputs={'psnr': np.asarray([psnr]),'ssim': np.asarray([ssim])}
         imgs.append(rgb_pr)
 
