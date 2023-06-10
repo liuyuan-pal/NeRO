@@ -256,10 +256,153 @@ class GlossySyntheticDatabase(BaseDatabase):
     def get_mask(self, img_id):
         raise NotImplementedError
 
+class CustomDatabase(BaseDatabase):
+    def __init__(self, database_name):
+        super().__init__(database_name)
+        _, self.object_name, self.max_len = database_name.split('/')
+
+        self.root = f'data/custom/{self.object_name}'
+        self._parse_colmap()
+        self._normalize()
+        if not self.max_len.startswith('raw'):
+            self.max_len = int(self.max_len)
+            self.image_dir = ''
+            self._crop()
+        else:
+            h, w, _ = imread(f'{self.root}/images/{self.image_names[self.img_ids[0]]}').shape
+            max_len = int(self.max_len.split('_')[1])
+            ratio = float(max_len) / max(h, w)
+            th, tw = int(ratio*h), int(ratio*w)
+            rh, rw = th / h, tw / w
+
+            Path(f'{self.root}/images_{self.max_len}').mkdir(exist_ok=True, parents=True)
+            for img_id in tqdm(self.img_ids):
+                if not Path(f'{self.root}/images_{self.max_len}/{self.image_names[img_id]}').exists():
+                    img = imread(f'{self.root}/images/{self.image_names[img_id]}')
+                    img = resize_img(img, ratio)
+                    imsave(f'{self.root}/images_{self.max_len}/{self.image_names[img_id]}', img)
+
+                K = self.Ks[img_id]
+                self.Ks[img_id] = np.diag([rw,rh,1.0]) @ K
+
+    def _parse_colmap(self):
+        if Path(f'{self.root}/cache.pkl').exists():
+            self.poses, self.Ks, self.image_names, self.img_ids = read_pickle(f'{self.root}/cache.pkl')
+        else:
+            cameras, images, points3d = read_model(f'{self.root}/colmap/sparse/0')
+
+            self.poses, self.Ks, self.image_names, self.img_ids = {}, {}, {}, []
+            for img_id, image in images.items():
+                self.img_ids.append(img_id)
+                self.image_names[img_id] = image.name
+
+                R = image.qvec2rotmat()
+                t = image.tvec
+                pose = np.concatenate([R, t[:, None]], 1).astype(np.float32)
+                self.poses[img_id] = pose
+
+                cam_id = image.camera_id
+                camera = cameras[cam_id]
+                if camera.model == 'SIMPLE_RADIAL':
+                    f, cx, cy, _ = camera.params
+                elif camera.model == 'SIMPLE_PINHOLE':
+                    f, cx, cy = camera.params
+                else:
+                    raise NotImplementedError
+                self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
+
+            save_pickle([self.poses, self.Ks, self.image_names, self.img_ids],f'{self.root}/cache.pkl')
+
+    def _load_point_cloud(self, pcl_path):
+        with open(pcl_path, "rb") as f:
+            plydata = plyfile.PlyData.read(f)
+            xyz = np.stack([np.array(plydata["vertex"][c]).astype(float) for c in ("x", "y", "z")], axis=1)
+        return xyz
+
+    def _compute_rotation(self, vert, forward):
+        y = np.cross(vert, forward)
+        x = np.cross(y, vert)
+
+        vert = vert/np.linalg.norm(vert)
+        x = x/np.linalg.norm(x)
+        y = y/np.linalg.norm(y)
+        R = np.stack([x, y, vert], 0)
+        return R
+
+    def _normalize(self):
+        ref_points = self._load_point_cloud(f'{self.root}/object_point_cloud.ply')
+        max_pt, min_pt = np.max(ref_points, 0), np.min(ref_points, 0)
+        center = (max_pt + min_pt) * 0.5
+        offset = -center # x1 = x0 + offset
+        scale = 1 / np.max(np.linalg.norm(ref_points - center[None,:], 2, 1)) # x2 = scale * x1
+        directions = np.loadtxt(f'{self.root}/meta_info.txt')
+        up = directions[0]
+        forward = directions[1]
+        up, forward = up/np.linalg.norm(up), forward/np.linalg.norm(forward)
+        R_rec = self._compute_rotation(up, forward) # x3 = R_rec @ x2
+        self.ref_points = scale * (ref_points + offset) @ R_rec.T
+        self.scale_rect = scale
+        self.offset_rect = offset
+        self.R_rect = R_rec
+
+        # x3 = R_rec @ (scale * (x0 + offset))
+        # R_rec.T @ x3 / scale - offset = x0
+
+        # pose [R,t] x_c = R @ x0 + t
+        # pose [R,t] x_c = R @ (R_rec.T @ x3 / scale - offset) + t
+        # x_c = R @ R_rec.T @ x3 + (t - R @ offset) * scale
+        # R_new = R @ R_rec.T    t_new = (t - R @ offset) * scale
+        for img_id, pose in self.poses.items():
+            R, t = pose[:,:3], pose[:,3]
+            R_new = R @ R_rec.T
+            t_new = (t - R @ offset) * scale
+            self.poses[img_id] = np.concatenate([R_new, t_new[:,None]], -1)
+
+    def _crop(self):
+        if Path(f'{self.root}/images_{self.max_len}/meta_info.pkl').exists():
+            self.poses, self.Ks = read_pickle(f'{self.root}/images_{self.max_len}/meta_info.pkl')
+        else:
+            poses_new, Ks_new = {}, {}
+            print('cropping images ...')
+            Path(f'{self.root}/images_{self.max_len}').mkdir(exist_ok=True,parents=True)
+            for img_id in tqdm(self.img_ids):
+                pose, K = self.poses[img_id], self.Ks[img_id]
+                img = imread(f'{self.root}/images/{self.image_names[img_id]}')
+                img1, K1, pose1 = crop_by_points(img, self.ref_points, pose, K, self.max_len)
+                imsave(f'{self.root}/images_{self.max_len}/{self.image_names[img_id]}', img1)
+                poses_new[img_id] = pose1
+                Ks_new[img_id] = K1
+
+            save_pickle([poses_new, Ks_new],f'{self.root}/images_{self.max_len}/meta_info.pkl')
+            self.poses, self.Ks = poses_new, Ks_new
+
+    def get_image(self, img_id):
+        img = imread(f'{self.root}/images_{self.max_len}/{self.image_names[img_id]}')
+        return img
+
+    def get_K(self, img_id):
+        K = self.Ks[img_id]
+        return K.copy()
+
+    def get_pose(self, img_id):
+        return self.poses[img_id].copy()
+
+    def get_img_ids(self):
+        return self.img_ids
+
+    def get_mask(self, img_id):
+        raise NotImplementedError
+
+    def get_depth(self, img_id):
+        img = self.get_image(img_id)
+        h, w, _ = img.shape
+        return np.ones([h,w],np.float32), np.ones([h, w], np.bool)
+
 def parse_database_name(database_name:str)->BaseDatabase:
     name2database={
         'syn': GlossySyntheticDatabase,
         'real': GlossyRealDatabase,
+        'custom': CustomDatabase,
     }
     database_type = database_name.split('/')[0]
     if database_type in name2database:
@@ -267,7 +410,7 @@ def parse_database_name(database_name:str)->BaseDatabase:
     else:
         raise NotImplementedError
 
-def get_database_split(database:BaseDatabase, split_type='validation'):
+def get_database_split(database: BaseDatabase, split_type='validation'):
     if split_type=='validation':
         random.seed(6033)
         img_ids = database.get_img_ids()
