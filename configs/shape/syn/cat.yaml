@@ -3,7 +3,7 @@ name: cat_shape
 ####network#####
 network: shape
 database_name: syn/cat
-apply_acc_loss: true
+apply_occ_loss: true
 occ_loss_step: 20000
 
 ######loss######

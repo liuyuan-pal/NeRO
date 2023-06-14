@@ -5,7 +5,7 @@ network: shape
 database_name: real/bear/raw_1024
 shader_config:
   human_light: true
-apply_acc_loss: true
+apply_occ_loss: true
 occ_loss_step: 20000
 
 ######loss######

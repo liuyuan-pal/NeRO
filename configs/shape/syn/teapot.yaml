@@ -3,7 +3,7 @@ name: teapot_shape
 ####network#####
 network: shape
 database_name: syn/teapot
-apply_acc_loss: true
+apply_occ_loss: true
 occ_loss_step: 20000
 
 ######loss######

@@ -5,7 +5,7 @@ network: shape
 database_name: custom/kettle/raw_1024 # this means we run reconstruction on the image resolution of 1024
 shader_config:
   human_light: true # we model the reflection capturer
-apply_acc_loss: true # apply the occlusion loss
+apply_occ_loss: true # apply the occlusion loss
 occ_loss_step: 20000 # occlusion loss is applied after 20k steps
 clip_sample_variance: false # this affects how we sample points on the ray
 
