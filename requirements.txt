@@ -1,11 +1,12 @@
 tensorboardX
-torch==1.11.0
+#torch==1.11.0
 numpy
-open3d==0.16.0
-mcubes
+open3d==0.9.0
+pymcubes
 plyfile
 h5py
 transforms3d
 tqdm
 opencv-python
-yaml
+pyyaml
+scikit-image

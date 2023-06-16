@@ -578,7 +578,7 @@ class AppShadingNetwork(nn.Module):
 
     def predict_diffuse_lights(self, points, feature_vectors, normals):
         roughness = torch.ones([normals.shape[0],1])
-        ref = self.sph_enc(normals, roughness)
+        ref = self.sph_enc(normals, roughness)  # von Mises-Fisher distribution
         if self.cfg['sphere_direction']:
             sph_points = offset_points_to_sphere(points)
             sph_points = F.normalize(sph_points + normals * get_sphere_intersection(sph_points, normals), dim=-1)
