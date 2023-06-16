@@ -84,7 +84,7 @@ class GlossyRealDatabase(BaseDatabase):
         super().__init__(database_name)
         _, self.object_name, self.max_len = database_name.split('/')
 
-        self.root = f'data/GlossyReal/{self.object_name}'
+        self.root = f'/media/data_nix/yzy/Git_Project/data/NeRO/GlossyReal/{self.object_name}'
         self._parse_colmap()
         self._normalize()
         if not self.max_len.startswith('raw'):
@@ -223,7 +223,7 @@ class GlossySyntheticDatabase(BaseDatabase):
     def __init__(self, database_name):
         super().__init__(database_name)
         _, model_name = database_name.split('/')
-        RENDER_ROOT='data/GlossySynthetic'
+        RENDER_ROOT='/media/data_nix/yzy/Git_Project/data/NeRO/GlossySynthetic'
         self.root=f'{RENDER_ROOT}/{model_name}'
         self.img_num = len(glob.glob(f'{self.root}/*.pkl'))
         self.img_ids= [str(k) for k in range(self.img_num)]
