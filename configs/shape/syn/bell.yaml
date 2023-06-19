@@ -1,4 +1,4 @@
-name: bell_shape
+name: test_shape
 
 ####network#####
 network: shape
@@ -29,7 +29,7 @@ optimizer_type: adam
 lr_type: warm_up_cos
 lr_cfg: {}
 total_step: 300000
-val_interval: 5000
+val_interval: 100
 save_interval: 1000
 train_log_step: 20
 
