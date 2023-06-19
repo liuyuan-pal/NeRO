@@ -767,7 +767,7 @@ class MCShadingNetwork(nn.Module):
 
     def sample_diffuse_directions(self, normals, is_train):
         # normals [pn,3]
-        z = normals # pn,3
+        z = normals # pn,3  TODO 正交坐标系如何得到
         x = self.get_orthogonal_directions(normals) # pn,3
         y = torch.cross(z, x, dim=-1) # pn,3
         # y = torch.cross(z, x, dim=-1) # pn,3
@@ -952,7 +952,7 @@ class MCShadingNetwork(nn.Module):
         diffuse_probability = NoL_d / np.pi * (diffuse_num / (specular_num+diffuse_num))
 
         # specualr sample prob
-        H_s = (view_dirs.unsqueeze(1) + specular_directions) # [pn,sn0,3]
+        H_s = (view_dirs.unsqueeze(1) + specular_directions) # [pn,sn0,3] half vector
         H_s = F.normalize(H_s, dim=-1)
         NoH_s = saturate_dot(normals.unsqueeze(1), H_s)
         VoH_s = saturate_dot(view_dirs.unsqueeze(1),H_s)

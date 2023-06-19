@@ -109,6 +109,7 @@ class Trainer:
 
         pbar = tqdm(total=self.cfg['total_step'], bar_format='{r_bar}')
         pbar.update(start_step)
+
         for step in range(start_step, self.cfg['total_step']):
             try:
                 train_data = next(train_iter)
@@ -126,6 +127,12 @@ class Trainer:
 
             self.optimizer.zero_grad()
             self.train_network.zero_grad()
+
+            if (step + 1) % self.cfg['novel_view_interval'] == 0:
+                render_data = train_data.copy()
+                render_data["render"] = True
+
+                self.train_network(render_data)
 
             log_info = {}
             outputs = self.train_network(train_data)
