@@ -344,7 +344,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
 
     def get_depth(self, img_id):
         assert (self.scale_factor == 1.0)
-        depth = torch.randn(800, 800, 3).numpy()
+        depth = torch.randn(800, 800, 3).cpu().numpy()
         # depth = imread(f'{self.root}/test/r_{img_id}_depth_0001.png')
         depth = depth.astype(np.float32) / 65535 * 15
         mask = self.imgs[int(img_id)][..., -1]
