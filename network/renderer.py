@@ -22,7 +22,7 @@ def build_imgs_info(database: BaseDatabase, img_ids):
     Ks = [database.get_K(img_id) for img_id in img_ids]
 
     images = np.stack(images, 0)
-    images = color_map_forward(images).astype(np.float32)
+    # images = color_map_forward(images).astype(np.float32)  # TODO maybe not used for nerf
     Ks = np.stack(Ks, 0).astype(np.float32)
     poses = np.stack(poses, 0).astype(np.float32)
     return {'imgs': images, 'Ks': Ks, 'poses': poses}
@@ -161,7 +161,7 @@ class NeROShapeRenderer(nn.Module):
         if hasattr(self, 'train_batch'):
             del self.train_batch
 
-        self.train_batch, self.train_poses, self.tbn, _, _ = self._construct_ray_batch(self.train_imgs_info)
+        self.train_batch, self.train_poses, self.tbn, _, _ = self._construct_nerf_ray_batch(self.train_imgs_info)
         self.train_poses = self.train_poses.float().cuda()
 
         self._shuffle_train_batch()
@@ -216,7 +216,6 @@ class NeROShapeRenderer(nn.Module):
             render_poses[i, 2, 2] += torch.randn(1)[0] * 0.1
             render_poses[i, 2, 0] += torch.randn(1)[0] * 0.1
 
-
         return render_poses[:, :3, :]
 
     def _construct_ray_batch(self, imgs_info, device='cpu'):
@@ -229,7 +228,7 @@ class NeROShapeRenderer(nn.Module):
                            2)  # imn,h*w,3
 
         # imn,h*w,3 @ imn,3,3 => imn,h*w,3
-        dirs = coords @ torch.inverse(imgs_info['Ks']).permute(0, 2, 1)
+        dirs = coords @ torch.inverse(imgs_info['Ks']).permute(0, 2, 1)  # TODO maybe different
         imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
         idxs = torch.arange(imn, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
         poses = imgs_info['poses']  # imn,3,4
@@ -239,6 +238,35 @@ class NeROShapeRenderer(nn.Module):
             'dirs': dirs.float().reshape(rn, 3).to(device),
             'rgbs': imgs.float().reshape(rn, 3).to(device),
             'idxs': idxs.long().reshape(rn, 1).to(device),
+        }
+        return ray_batch, poses, rn, h, w
+
+    def _construct_nerf_ray_batch(self, imgs_info, device='cpu'):
+        imn, _, h, w = imgs_info['imgs'].shape
+
+        i, j = torch.meshgrid(torch.linspace(0, w - 1, w),
+                              torch.linspace(0, h - 1, h))  # pytorch's meshgrid has indexing='ij'
+        i = i.t()
+        j = j.t()
+
+        K = imgs_info['Ks'][0]
+        dirs = torch.stack([(i - K[0][2]) / K[0][0], -(j - K[1][2]) / K[1][1], -torch.ones_like(i)], -1)
+
+        imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
+        idxs = torch.arange(imn, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
+        poses = imgs_info['poses']  # imn,3,4
+
+        rays_d = [torch.sum(dirs[..., None, :].cpu() * poses[i, :3, :3], -1) for i in range(imn)]
+        rays_d = torch.stack(rays_d, 0).reshape(imn, h * w, 3)
+        rays_o = [poses[i, :3, -1].expand(rays_d[0].shape) for i in range(imn)]
+        rays_o = torch.stack(rays_o, 0).reshape(imn, h * w, 3)
+        rn = imn * h * w
+        ray_batch = {
+            # 'dirs': dirs.float().reshape(rn, 3).to(device),
+            'rgbs': imgs.float().reshape(rn, 3).to(device),
+            'idxs': idxs.long().reshape(rn, 1).to(device),
+            'rays_o': rays_o.float().reshape(rn, 3).to(device),
+            'rays_d': rays_d.float().reshape(rn, 3).to(device),
         }
         return ray_batch, poses, rn, h, w
 
@@ -349,6 +377,19 @@ class NeROShapeRenderer(nn.Module):
         human_poses = self.get_human_coordinate_poses(poses)
         return rays_o, rays_d, near, far, human_poses[idxs]  # rn, 3, 4
 
+    def _process_nerf_ray_batch(self, ray_batch, poses):  # TODO need to fit nerf
+        # dirs = ray_batch['dirs']  # rn,3
+        idxs = ray_batch['idxs'][..., 0]  # rn
+        rays_d = ray_batch['rays_d']
+        rays_o = ray_batch['rays_o']
+        # poses = poses[idxs, :3, :]
+        # rays_d = torch.sum(dirs[..., None, :] * poses[..., :3], -1)
+        # rays_o = poses[:, :, -1].expand(rays_d.shape)
+        rays_d = F.normalize(rays_d, dim=-1)
+        near, far = torch.full((rays_o.shape[0], 1), 2.0), torch.full((rays_o.shape[0], 1), 6.0)
+
+        return rays_o, rays_d, near, far, poses[idxs]  # rn, 3, 4
+
     def _process_render_ray_batch(self, ray_batch, poses):
         dirs = ray_batch['dirs']  # rn,3
 
@@ -376,12 +417,12 @@ class NeROShapeRenderer(nn.Module):
         gt_depth, gt_mask = self.database.get_depth(target_img_ids[index])  # used in evaluation
         if self.cfg['test_downsample_ratio']:
             imgs_info = imgs_info_downsample(imgs_info, self.cfg['downsample_ratio'])
-            h, w = gt_depth.shape
+            h, w, _ = gt_depth.shape
             dh, dw = int(self.cfg['downsample_ratio'] * h), int(self.cfg['downsample_ratio'] * w)
             gt_depth, gt_mask = cv2.resize(gt_depth, (dw, dh), interpolation=cv2.INTER_NEAREST), \
                 cv2.resize(gt_mask.astype(np.uint8), (dw, dh), interpolation=cv2.INTER_NEAREST)
         gt_depth, gt_mask = torch.from_numpy(gt_depth), torch.from_numpy(gt_mask.astype(np.int32))
-        ray_batch, input_poses, rn, h, w = self._construct_ray_batch(imgs_info)
+        ray_batch, input_poses, rn, h, w = self._construct_nerf_ray_batch(imgs_info)
 
         input_poses = input_poses.float().cuda()
         for k, v in ray_batch.items(): ray_batch[k] = v.cuda()
@@ -399,7 +440,7 @@ class NeROShapeRenderer(nn.Module):
         outputs = {k: [] for k in outputs_keys}
         for ri in range(0, rn, trn):
             cur_ray_batch = {k: v[ri:ri + trn] for k, v in ray_batch.items()}
-            rays_o, rays_d, near, far, human_poses = self._process_ray_batch(cur_ray_batch, input_poses)
+            rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, input_poses)
             cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step)
             for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
 
@@ -422,7 +463,8 @@ class NeROShapeRenderer(nn.Module):
         self.train_batch_i += rn
         if self.train_batch_i + rn >= self.tbn: self._shuffle_train_batch()
         train_poses = self.train_poses.cuda()
-        rays_o, rays_d, near, far, human_poses = self._process_ray_batch(train_ray_batch, train_poses)
+        # rays_o, rays_d, near, far, human_poses = self._process_ray_batch(train_ray_batch, train_poses)
+        rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(train_ray_batch, train_poses)
 
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
                               step=step)
