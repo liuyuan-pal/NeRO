@@ -473,7 +473,7 @@ class NeROShapeRenderer(nn.Module):
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
                               step=step)
         outputs['loss_rgb'] = self.compute_rgb_loss(outputs['ray_rgb'], train_ray_batch['rgbs'])  # ray_loss
-        outputs['loss_mask'] = F.binary_cross_entropy(train_ray_batch['masks'], outputs['acc'])
+        outputs['loss_mask'] = F.l1_loss(train_ray_batch['masks'], outputs['acc'], reduction='mean')
         return outputs
 
     def render_step(self, step):  # TODO
