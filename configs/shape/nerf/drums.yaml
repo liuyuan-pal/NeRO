@@ -2,7 +2,7 @@ name: drums_shape
 
 ####network#####
 network: shape
-database_name: syn/bell
+database_name: nerf/drums
 apply_acc_loss: true
 occ_loss_step: 20000
 
@@ -16,13 +16,13 @@ freeze_inv_s_step: 15000
 ####dataset#####
 train_dataset_type: dummy
 train_dataset_cfg:
-  database_name: syn/bell
+  database_name: nerf/drums
 val_set_list:
   -
     name: val
     type: dummy
     cfg:
-      database_name: syn/bell
+      database_name: nerf/drums
 
 ####trainier####
 optimizer_type: adam
