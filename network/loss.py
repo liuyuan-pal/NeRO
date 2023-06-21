@@ -135,7 +135,9 @@ class InitSDFRegLoss(Loss):
 
 
 class MaskLoss(Loss):
-    default_cfg = {}
+    default_cfg = {
+        'mask_loss_weight': 0.01,
+    }
 
     def __init__(self, cfg):
         self.cfg = {**self.default_cfg, **cfg}
@@ -143,7 +145,7 @@ class MaskLoss(Loss):
     def __call__(self, data_pr, data_gt, step, *args, **kwargs):
         outputs = {}
         if 'loss_mask' in data_pr:
-            outputs['loss_mask'] = data_pr['loss_mask'].reshape(1)
+            outputs['loss_mask'] = data_pr['loss_mask'].reshape(1) * self.cfg['mask_loss_weight']
         return outputs
 
 
