@@ -5,6 +5,7 @@ import random
 from pathlib import Path
 
 import numpy as np
+import torch
 from skimage.io import imread, imsave
 from tqdm import tqdm
 
@@ -343,7 +344,8 @@ class NeRFSyntheticDatabase(BaseDatabase):
 
     def get_depth(self, img_id):
         assert (self.scale_factor == 1.0)
-        depth = imread(f'{self.root}/test/r_{img_id}_depth_0001.png')
+        depth = torch.randn(800, 800, 3).numpy()
+        # depth = imread(f'{self.root}/test/r_{img_id}_depth_0001.png')
         depth = depth.astype(np.float32) / 65535 * 15
         mask = self.imgs[int(img_id)][..., -1]
         return depth, mask
