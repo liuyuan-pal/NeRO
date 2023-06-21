@@ -20,12 +20,14 @@ def build_imgs_info(database: BaseDatabase, img_ids):
     images = [database.get_image(img_id) for img_id in img_ids]
     poses = [database.get_pose(img_id) for img_id in img_ids]
     Ks = [database.get_K(img_id) for img_id in img_ids]
+    masks = [database.get_depth(img_id)[1] for img_id in img_ids]
 
     images = np.stack(images, 0)
+    masks = np.stack(masks, 0)
     # images = color_map_forward(images).astype(np.float32)  # TODO maybe not used for nerf
     Ks = np.stack(Ks, 0).astype(np.float32)
     poses = np.stack(poses, 0).astype(np.float32)
-    return {'imgs': images, 'Ks': Ks, 'poses': poses}
+    return {'imgs': images, 'Ks': Ks, 'poses': poses, "masks": masks}
 
 
 def imgs_info_to_torch(imgs_info, device='cpu'):
@@ -255,6 +257,7 @@ class NeROShapeRenderer(nn.Module):
         imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
         idxs = torch.arange(imn, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
         poses = imgs_info['poses']  # imn,3,4
+        masks = imgs_info['masks'].reshape(imn, h * w)
 
         rays_d = [torch.sum(dirs[..., None, :].cpu() * poses[i, :3, :3], -1) for i in range(imn)]
         rays_d = torch.stack(rays_d, 0).reshape(imn, h * w, 3)
@@ -267,6 +270,7 @@ class NeROShapeRenderer(nn.Module):
             'idxs': idxs.long().reshape(rn, 1).to(device),
             'rays_o': rays_o.float().reshape(rn, 3).to(device),
             'rays_d': rays_d.float().reshape(rn, 3).to(device),
+            'masks': masks.float().reshape(rn).to(device)
         }
         return ray_batch, poses, rn, h, w
 
@@ -469,6 +473,7 @@ class NeROShapeRenderer(nn.Module):
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
                               step=step)
         outputs['loss_rgb'] = self.compute_rgb_loss(outputs['ray_rgb'], train_ray_batch['rgbs'])  # ray_loss
+        outputs['loss_mask'] = F.binary_cross_entropy(outputs['acc'], train_ray_batch['masks'])
         return outputs
 
     def render_step(self, step):  # TODO
@@ -767,10 +772,12 @@ class NeROShapeRenderer(nn.Module):
         weights = alpha * torch.cumprod(torch.cat([torch.ones([batch_size, 1]), 1. - alpha + 1e-7], -1), -1)[...,
                           :-1]  # rn,sn
         color = (sampled_color * weights[..., None]).sum(dim=1)
+        acc = torch.sum(weights, -1)
 
         outputs = {
             'ray_rgb': color,  # rn,3
             'gradient_error': gradient_error,  # rn
+            'acc': acc, # rn
         }
 
         if torch.sum(inner_mask) > 0:

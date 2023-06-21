@@ -345,7 +345,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
         assert (self.scale_factor == 1.0)
         depth = imread(f'{self.root}/test/r_{img_id}_depth_0001.png')
         depth = depth.astype(np.float32) / 65535 * 15
-        mask = depth < 14.5
+        mask = self.imgs[int(img_id)][..., -1]
         return depth, mask
 
     def get_mask(self, img_id):
