@@ -273,7 +273,8 @@ class NeRFSyntheticDatabase(BaseDatabase):
     def __init__(self, database_name, testskip=8):
         super().__init__(database_name)
         _, model_name = database_name.split('/')
-        RENDER_ROOT = '/media/data_nix/yzy/Git_Project/data/nerf_synthetic'
+        RENDER_ROOT = '/data00/yzy/Git_Project/data/nerf_synthetic'
+        #RENDER_ROOT = '/media/data_nix/yzy/Git_Project/data/nerf_synthetic'
         self.root = f'{RENDER_ROOT}/{model_name}'
         self.scale_factor = 1.0
 
@@ -344,7 +345,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
 
     def get_depth(self, img_id):
         assert (self.scale_factor == 1.0)
-        depth = torch.randn(800, 800, 3).numpy()
+        depth = torch.randn(800, 800, 3).cpu().numpy()
         # depth = imread(f'{self.root}/test/r_{img_id}_depth_0001.png')
         depth = depth.astype(np.float32) / 65535 * 15
         mask = self.imgs[int(img_id)][..., -1]
