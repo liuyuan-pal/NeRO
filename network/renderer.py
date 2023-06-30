@@ -146,7 +146,7 @@ class NeROShapeRenderer(nn.Module):
 
     def _init_dataset(self):
         # train/test split
-        self.database = parse_database_name(self.cfg['database_name'])
+        self.database = parse_database_name(self.cfg['database_name'], self.cfg['dataset_dir'])
         self.train_ids, self.test_ids = get_database_split(self.database)
         self.train_ids = np.asarray(self.train_ids)
 
@@ -887,7 +887,7 @@ class NeROMaterialRenderer(nn.Module):
 
     def _init_dataset(self, is_train):
         # train/test split
-        self.database = parse_database_name(self.cfg['database_name'])
+        self.database = parse_database_name(self.cfg['database_name'], self.cfg['dataset_dir'])
         self.train_ids, self.test_ids = get_database_split(self.database, 'validation')
         self.train_ids = np.asarray(self.train_ids)
 
