@@ -273,7 +273,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
     def __init__(self, database_name, testskip=8):
         super().__init__(database_name)
         _, model_name = database_name.split('/')
-        RENDER_ROOT = '/data00/yzy/Git_Project/data/nerf_synthetic'
+        RENDER_ROOT = '/media/data_nix/yzy/Git_Project/data/refnerf'
         #RENDER_ROOT = '/media/data_nix/yzy/Git_Project/data/nerf_synthetic'
         self.root = f'{RENDER_ROOT}/{model_name}'
         self.scale_factor = 1.0
