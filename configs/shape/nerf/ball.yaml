@@ -18,6 +18,7 @@ freeze_inv_s_step: 15000
 train_dataset_type: dummy
 train_dataset_cfg:
   database_name: nerf/ball
+  dataset_dir: dataset_dir
 val_set_list:
   -
     name: val

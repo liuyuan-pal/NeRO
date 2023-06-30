@@ -8,7 +8,7 @@ class DummyDataset(Dataset):
     def __init__(self, cfg, is_train):
         self.cfg={**self.default_cfg,**cfg}
         if not is_train:
-            database = parse_database_name(self.cfg['database_name'])
+            database = parse_database_name(self.cfg['database_name'], self.cfg['dataset_dir'])
             train_ids, test_ids = get_database_split(database, 'validation')
             self.train_num = len(train_ids)
             self.test_num = len(test_ids)
