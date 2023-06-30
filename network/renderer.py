@@ -103,6 +103,7 @@ class NeROShapeRenderer(nn.Module):
 
         # dataset
         'database_name': 'nerf_synthetic/lego/black_800',
+        'is_nerf': False,
 
         # validation
         'test_downsample_ratio': True,
@@ -464,6 +465,7 @@ class NeROShapeRenderer(nn.Module):
 
     def train_step(self, step):
         rn = self.cfg['train_ray_num']
+        is_nerf = self.cfg['is_nerf']
         # fetch to gpu
         train_ray_batch = {k: v[self.train_batch_i:self.train_batch_i + rn].cuda() for k, v in self.train_batch.items()}
         self.train_batch_i += rn
@@ -473,9 +475,10 @@ class NeROShapeRenderer(nn.Module):
         rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(train_ray_batch, train_poses)
 
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
-                              step=step)
+                              step=step, is_nerf=is_nerf)
         outputs['loss_rgb'] = self.compute_rgb_loss(outputs['ray_rgb'], train_ray_batch['rgbs'])  # ray_loss
-        outputs['loss_mask'] = F.l1_loss(train_ray_batch['masks'], outputs['acc'], reduction='mean')
+        if is_nerf:  # TODO only nerf dataset add loss_mask
+            outputs['loss_mask'] = F.l1_loss(train_ray_batch['masks'], outputs['acc'], reduction='mean')
         return outputs
 
     def render_step(self, step):  # TODO
@@ -625,7 +628,7 @@ class NeROShapeRenderer(nn.Module):
         return z_vals
 
     def render(self, rays_o, rays_d, near, far, human_poses, perturb_overwrite=-1, cos_anneal_ratio=0.0, is_train=True,
-               step=None):
+               step=None, is_nerf=False):
         """
         :param rays_o: rn,3
         :param rays_d: rn,3
@@ -643,7 +646,7 @@ class NeROShapeRenderer(nn.Module):
             perturb = perturb_overwrite
         z_vals = self.sample_ray(rays_o, rays_d, near, far, perturb)
         ret = self.render_core(rays_o, rays_d, z_vals, human_poses, cos_anneal_ratio=cos_anneal_ratio, step=step,
-                               is_train=is_train)
+                               is_train=is_train, is_nerf=is_nerf)
         return ret
 
     def compute_validation_info(self, z_vals, rays_o, rays_d, weights, human_poses, step):
@@ -735,7 +738,7 @@ class NeROShapeRenderer(nn.Module):
         else:
             return torch.zeros(1)
 
-    def render_core(self, rays_o, rays_d, z_vals, human_poses, cos_anneal_ratio=0.0, step=None, is_train=True):
+    def render_core(self, rays_o, rays_d, z_vals, human_poses, cos_anneal_ratio=0.0, step=None, is_train=True, is_nerf=False):
         batch_size, n_samples = z_vals.shape
 
         # section length in original space
@@ -775,6 +778,8 @@ class NeROShapeRenderer(nn.Module):
                           :-1]  # rn,sn
         color = (sampled_color * weights[..., None]).sum(dim=1)
         acc = torch.sum(weights, -1)
+        if is_nerf:
+            color = color + (1. - acc[...,None])
 
         outputs = {
             'ray_rgb': color,  # rn,3

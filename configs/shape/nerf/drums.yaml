@@ -5,6 +5,7 @@ network: shape
 database_name: nerf/drums
 apply_acc_loss: true
 occ_loss_step: 20000
+is_nerf: true
 
 ######loss######
 loss: ['nerf_render','eikonal','std','init_sdf_reg','occ', 'mask']
