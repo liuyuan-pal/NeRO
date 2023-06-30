@@ -43,9 +43,10 @@ class Trainer:
                                     collate_fn=dummy_collate_fn)
         print(f'train set len {len(self.train_set)}')
         self.val_set_list, self.val_set_names = [], []
+        dataset_dir = self.cfg['dataset_dir']
         for val_set_cfg in self.cfg['val_set_list']:
             name, val_type, val_cfg = val_set_cfg['name'], val_set_cfg['type'], val_set_cfg['cfg']
-            val_set = name2dataset[val_type](val_cfg, False)
+            val_set = name2dataset[val_type](val_cfg, False, dataset_dir=dataset_dir)
             val_set = DataLoader(val_set, 1, False, num_workers=self.cfg['worker_num'], collate_fn=dummy_collate_fn)
             self.val_set_list.append(val_set)
             self.val_set_names.append(name)

@@ -356,7 +356,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
         raise NotImplementedError
 
 
-def parse_database_name(database_name: str) -> BaseDatabase:
+def parse_database_name(database_name: str, dataset_dir: str) -> BaseDatabase:
     name2database = {
         'syn': GlossySyntheticDatabase,
         'real': GlossyRealDatabase,
@@ -364,7 +364,7 @@ def parse_database_name(database_name: str) -> BaseDatabase:
     }
     database_type = database_name.split('/')[0]
     if database_type in name2database:
-        return name2database[database_type](database_name)
+        return name2database[database_type](database_name, dataset_dir)
     else:
         raise NotImplementedError
 
