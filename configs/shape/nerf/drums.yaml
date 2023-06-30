@@ -1,4 +1,4 @@
-name: drums_shape
+name: drums_shape_true
 
 ####network#####
 network: shape
@@ -7,7 +7,7 @@ apply_acc_loss: true
 occ_loss_step: 20000
 
 ######loss######
-loss: ['nerf_render','eikonal','std','init_sdf_reg','occ','mask']
+loss: ['nerf_render','eikonal','std','init_sdf_reg','occ', 'mask']
 val_metric: ['shape_render']
 key_metric_name: psnr
 eikonal_weight: 0.1

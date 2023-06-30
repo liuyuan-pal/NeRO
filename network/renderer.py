@@ -392,7 +392,7 @@ class NeROShapeRenderer(nn.Module):
         # rays_d = torch.sum(dirs[..., None, :] * poses[..., :3], -1)
         # rays_o = poses[:, :, -1].expand(rays_d.shape)
         rays_d = F.normalize(rays_d, dim=-1)
-        near, far = torch.full((rays_o.shape[0], 1), 2.0), torch.full((rays_o.shape[0], 1), 6.0)
+        near, far = torch.full((rays_o.shape[0], 1), 1.0), torch.full((rays_o.shape[0], 1), 3.0)
 
         return rays_o, rays_d, near, far, poses[idxs]  # rn, 3, 4
 

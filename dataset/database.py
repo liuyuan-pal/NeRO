@@ -310,6 +310,7 @@ class NeRFSyntheticDatabase(BaseDatabase):
 
         self.imgs = np.concatenate(all_imgs, 0)
         self.poses = np.concatenate(all_poses, 0)
+        self.poses[..., :3, 3] /= 2
 
         self.img_num = self.imgs.shape[0]
         self.img_ids = [str(k) for k in range(self.img_num)]
