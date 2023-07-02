@@ -1,8 +1,8 @@
-name: drums_shape_true
+name: hotdog_shape_true
 
 ####network#####
 network: shape
-database_name: nerf/drums
+database_name: nerf/hotdog
 apply_acc_loss: true
 occ_loss_step: 20000
 is_nerf: true
@@ -18,13 +18,13 @@ freeze_inv_s_step: 15000
 train_dataset_type: dummy
 dataset_dir: /data00/yzy/Git_Project/data/nerf_synthetic
 train_dataset_cfg:
-  database_name: nerf/drums
+  database_name: nerf/hotdog
 val_set_list:
   -
     name: val
     type: dummy
     cfg:
-      database_name: nerf/drums
+      database_name: nerf/hotdog
 
 ####trainier####
 optimizer_type: adam
