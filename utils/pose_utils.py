@@ -6,29 +6,29 @@ from utils.base_utils import *
 
 def estimate_pose_from_similarity_transform(ref_pose, ref_K, que_K, M_que_to_ref, object_center):
     # todo: here we assume the scale is approximately correct, even for the rectified version
-    M_ref_to_que = transformation_inverse_2d(M_que_to_ref) # from reference to query
-    ref_cam = (-ref_pose[:,:3].T @ ref_pose[:,3:])[...,0]
-    ref_obj_center, _ = project_points(object_center[None,:],ref_pose,ref_K)
+    M_ref_to_que = transformation_inverse_2d(M_que_to_ref)  # from reference to query
+    ref_cam = (-ref_pose[:, :3].T @ ref_pose[:, 3:])[..., 0]
+    ref_obj_center, _ = project_points(object_center[None, :], ref_pose, ref_K)
     # ref_obj_center = ref_obj_center[0]
     que_obj_center = transformation_apply_2d(M_ref_to_que, ref_obj_center)[0]
     que_obj_center_ = hpts_to_pts(pts_to_hpts(que_obj_center[None]) @ np.linalg.inv(que_K).T)[0]  # normalized
     scale, rotation, _ = transformation_decompose_2d(M_ref_to_que)
 
     # approximate depth
-    que_f = (que_K[0,0]+que_K[1,1])/2
-    ref_f = (ref_K[0,0]+ref_K[1,1])/2
+    que_f = (que_K[0, 0] + que_K[1, 1]) / 2
+    ref_f = (ref_K[0, 0] + ref_K[1, 1]) / 2
     que_obj_center__ = que_obj_center_ * que_f
-    que_f_ = np.sqrt(que_f ** 2 + np.linalg.norm(que_obj_center__,2)**2)
+    que_f_ = np.sqrt(que_f ** 2 + np.linalg.norm(que_obj_center__, 2) ** 2)
     ref_dist = np.linalg.norm(ref_cam - object_center)
     que_dist = ref_dist * que_f_ / ref_f / scale
     # que_cam = object_center + (ref_cam - object_center) / ref_dist * que_dist
     que_obj_center___ = pts_to_hpts(que_obj_center_[None])[0]
-    que_cen3d = que_obj_center___ / np.linalg.norm(que_obj_center___)  * que_dist
+    que_cen3d = que_obj_center___ / np.linalg.norm(que_obj_center___) * que_dist
     # que_cen3d = R @ object_center + t
 
-    ref_rot = ref_pose[:,:3]
+    ref_rot = ref_pose[:, :3]
     R0 = np.eye(3)
-    R0[:2,:2] = angle_to_rotation_2d(rotation)
+    R0[:2, :2] = angle_to_rotation_2d(rotation)
 
     # x_, y_ = que_obj_center_
     # R1 = euler2mat(-np.arctan2(x_, 1),0,0,'syxz')
@@ -38,11 +38,13 @@ def estimate_pose_from_similarity_transform(ref_pose, ref_K, que_K, M_que_to_ref
     # que_rot = R1.T @ R2.T @ (R0 @ ref_rot)
     que_rot = R.T @ (R0 @ ref_rot)
     que_trans = que_cen3d - que_rot @ object_center
-    return np.concatenate([que_rot, que_trans[:,None]], 1)
+    return np.concatenate([que_rot, que_trans[:, None]], 1)
+
 
 def let_me_look_at(pose, K, obj_center):
     image_center, _ = project_points(obj_center[None, :], pose, K)
     return let_me_look_at_2d(image_center[0], K)
+
 
 def let_me_look_at_2d(image_center, K):
     f_raw = (K[0, 0] + K[1, 1]) / 2
@@ -51,6 +53,7 @@ def let_me_look_at_2d(image_center, K):
     image_center_ = image_center / f_raw
     R_new = look_at_rotation(image_center_)
     return R_new, f_new
+
 
 def scale_rotation_difference_from_cameras(ref_poses, que_poses, ref_Ks, que_Ks, center):
     """
@@ -64,18 +67,18 @@ def scale_rotation_difference_from_cameras(ref_poses, que_poses, ref_Ks, que_Ks,
     """
     que_rot, que_f = [], []
     for qi in range(que_poses.shape[0]):
-        R, f = let_me_look_at(que_poses[qi],que_Ks[qi],center)
-        que_rot.append(R @ que_poses[qi,:,:3])
+        R, f = let_me_look_at(que_poses[qi], que_Ks[qi], center)
+        que_rot.append(R @ que_poses[qi, :, :3])
         que_f.append(f)
-    que_rot = np.stack(que_rot,0)
+    que_rot = np.stack(que_rot, 0)
     que_f = np.asarray(que_f)
 
     ref_rot, ref_f = [], []
     for qi in range(ref_poses.shape[0]):
-        R, f = let_me_look_at(ref_poses[qi],ref_Ks[qi],center)
-        ref_rot.append(R @ ref_poses[qi,:,:3])
+        R, f = let_me_look_at(ref_poses[qi], ref_Ks[qi], center)
+        ref_rot.append(R @ ref_poses[qi, :, :3])
         ref_f.append(f)
-    ref_rot = np.stack(ref_rot,0)
+    ref_rot = np.stack(ref_rot, 0)
     ref_f = np.asarray(ref_f)
 
     ref_cam = (-ref_poses[:, :, :3].transpose([0, 2, 1]) @ ref_poses[:, :, 3:])[..., 0]  # rfn,3
@@ -96,8 +99,10 @@ def scale_rotation_difference_from_cameras(ref_poses, que_poses, ref_Ks, que_Ks,
 
     return scale_diff, angle_diff
 
-def estimate_pose_from_similarity_transform_compose(position, scale_r2q, angle_r2q, ref_pose, ref_K, que_K, object_center):
-    ref_cen = project_points(object_center[None],ref_pose,ref_K)[0][0]
+
+def estimate_pose_from_similarity_transform_compose(position, scale_r2q, angle_r2q, ref_pose, ref_K, que_K,
+                                                    object_center):
+    ref_cen = project_points(object_center[None], ref_pose, ref_K)[0][0]
     M_q2r = transformation_offset_2d(-position[0], -position[1])
     M_q2r = transformation_compose_2d(M_q2r, transformation_scale_2d(1 / scale_r2q))
     M_q2r = transformation_compose_2d(M_q2r, transformation_rotation_2d(-angle_r2q))
@@ -105,6 +110,7 @@ def estimate_pose_from_similarity_transform_compose(position, scale_r2q, angle_r
     pose_pr = estimate_pose_from_similarity_transform(ref_pose, ref_K, que_K, M_q2r, object_center)
     # print(project_points(object_center,pose_pr,que_K)[0][0] - position)
     return pose_pr
+
 
 def estimate_pose_from_refinement(context_info, refine_info, ref_pose, ref_K, que_K, object_center):
     context_position, context_scale_r2q, context_angle_r2q, warp_M = \
@@ -114,7 +120,8 @@ def estimate_pose_from_refinement(context_info, refine_info, ref_pose, ref_K, qu
 
     # find the corrected center
     cen_pr = ref_cen + offset_r2c
-    cen_pr = transformation_apply_2d(transformation_inverse_2d(warp_M), cen_pr[None, :])[0]  # coordinate on original image
+    cen_pr = transformation_apply_2d(transformation_inverse_2d(warp_M), cen_pr[None, :])[
+        0]  # coordinate on original image
 
     rect_R, rect_f = let_me_look_at_2d(cen_pr, que_K)
     scale_r2q = context_scale_r2q * scale_r2c
@@ -126,7 +133,7 @@ def estimate_pose_from_refinement(context_info, refine_info, ref_pose, ref_K, qu
     ref_dist = np.linalg.norm(ref_cam - object_center)
     que_dist = ref_dist * que_f / ref_f / scale_r2q
     obejct_dir = pts_to_hpts(cen_pr[None]) @ np.linalg.inv(que_K).T
-    obejct_dir /= np.linalg.norm(obejct_dir,2,1,True)
+    obejct_dir /= np.linalg.norm(obejct_dir, 2, 1, True)
     que_cam_ = (obejct_dir * que_dist)[0]
 
     # compute the rotation
@@ -138,9 +145,10 @@ def estimate_pose_from_refinement(context_info, refine_info, ref_pose, ref_K, qu
 
     # compute the translation
     # que_t = -que_R @ que_cam
-    que_t = que_cam_[:,None] - que_R @ object_center[:,None]
+    que_t = que_cam_[:, None] - que_R @ object_center[:, None]
     pose_pr = np.concatenate([que_R, que_t], 1)
     return pose_pr
+
 
 def compute_pose_errors(object_pts, pose_pr, pose_gt, K):
     # eval projection errors
@@ -154,17 +162,18 @@ def compute_pose_errors(object_pts, pose_pr, pose_gt, K):
     obj_err = np.mean(np.linalg.norm(pts3d_pr - pts3d_gt, 2, 1))
 
     # eval pose errors
-    dr = pose_pr[:3,:3] @ pose_gt[:3,:3].T
+    dr = pose_pr[:3, :3] @ pose_gt[:3, :3].T
     try:
         _, dr = mat2axangle(dr)
     except ValueError:
         print(dr)
         dr = np.pi
-    cam_pr = -pose_pr[:3,:3].T @ pose_pr[:3,3:]
-    cam_gt = -pose_gt[:3,:3].T @ pose_gt[:3,3:]
+    cam_pr = -pose_pr[:3, :3].T @ pose_pr[:3, 3:]
+    cam_gt = -pose_gt[:3, :3].T @ pose_gt[:3, 3:]
     dt = np.linalg.norm(cam_pr - cam_gt)
-    pose_err = np.asarray([np.abs(dr),dt])
+    pose_err = np.asarray([np.abs(dr), dt])
     return prj_err, obj_err, pose_err
+
 
 def compute_auc(errors, thresholds):
     sort_idx = np.argsort(errors)
@@ -175,25 +184,26 @@ def compute_auc(errors, thresholds):
     aucs = []
     for t in thresholds:
         last_index = np.searchsorted(errors, t)
-        r = np.r_[recall[:last_index], recall[last_index-1]]
+        r = np.r_[recall[:last_index], recall[last_index - 1]]
         e = np.r_[errors[:last_index], t]
-        aucs.append(np.trapz(r, x=e)/t)
+        aucs.append(np.trapz(r, x=e) / t)
     return aucs
 
-def compute_metrics_impl(object_pts, diameter, pose_gt_list, pose_pr_list, Ks, scale=1.0,sym=False):
+
+def compute_metrics_impl(object_pts, diameter, pose_gt_list, pose_pr_list, Ks, scale=1.0, sym=False):
     prj_errs, obj_errs, pose_errs, obj_errs_sym = [], [], [], []
     for pose_gt, pose_pr, K in zip(pose_gt_list, pose_pr_list, Ks):
         prj_err, obj_err, pose_err = compute_pose_errors(object_pts, pose_pr, pose_gt, K)
         if sym:
             obj_pts_pr = transform_points_pose(object_pts, pose_pr)
             obj_pts_gt = transform_points_pose(object_pts, pose_gt)
-            obj_err_sym = np.min(np.linalg.norm(obj_pts_pr[:,None]-obj_pts_gt[None,:],2,2),1)
+            obj_err_sym = np.min(np.linalg.norm(obj_pts_pr[:, None] - obj_pts_gt[None, :], 2, 2), 1)
             obj_err_sym = np.mean(obj_err_sym)
             obj_err_sym *= scale
             obj_errs_sym.append(obj_err_sym)
 
-        obj_err*=scale
-        pose_err[1]*=scale
+        obj_err *= scale
+        pose_err[1] *= scale
         prj_errs.append(prj_err)
         obj_errs.append(obj_err)
         pose_errs.append(pose_err)
@@ -202,19 +212,19 @@ def compute_metrics_impl(object_pts, diameter, pose_gt_list, pose_pr_list, Ks, s
     obj_errs = np.asarray(obj_errs)
     pose_errs = np.asarray(pose_errs)
     results = {
-        'add-0.1d': np.mean(obj_errs<(diameter*0.1)),
-        'add-0.05d': np.mean(obj_errs<(diameter*0.05)),
-        '5cm-5deg': np.mean((pose_errs[:,0]<np.deg2rad(5)) & (pose_errs[:,1]<0.05)),
-        '2cm-2deg': np.mean((pose_errs[:,0]<np.deg2rad(2)) & (pose_errs[:,1]<0.02)),
-        '2cm': np.mean(pose_errs[:,1]<0.02),
-        '2deg': np.mean(pose_errs[:,0]<np.deg2rad(2)),
-        'prj-5':np.mean(prj_errs<5),
+        'add-0.1d': np.mean(obj_errs < (diameter * 0.1)),
+        'add-0.05d': np.mean(obj_errs < (diameter * 0.05)),
+        '5cm-5deg': np.mean((pose_errs[:, 0] < np.deg2rad(5)) & (pose_errs[:, 1] < 0.05)),
+        '2cm-2deg': np.mean((pose_errs[:, 0] < np.deg2rad(2)) & (pose_errs[:, 1] < 0.02)),
+        '2cm': np.mean(pose_errs[:, 1] < 0.02),
+        '2deg': np.mean(pose_errs[:, 0] < np.deg2rad(2)),
+        'prj-5': np.mean(prj_errs < 5),
         'prj-auc-40': compute_auc(prj_errs, [40])[0],
         'add-10': compute_auc(obj_errs, [0.1])[0],
     }
     if sym:
         obj_errs_sym = np.asarray(obj_errs_sym)
-        results['add-0.1d-sym']=np.mean(obj_errs_sym<(diameter*0.1))
+        results['add-0.1d-sym'] = np.mean(obj_errs_sym < (diameter * 0.1))
     return results
 
 
@@ -224,7 +234,7 @@ def pose_sim_to_pose_rigid(pose_sim_in_to_que, pose_in, K_que, K_in, center):
     center_in = pose_apply(pose_in, center)
     depth_in = center_in[2]
 
-    U, S, V = np.linalg.svd(pose_sim_in_to_que[:3,:3])
+    U, S, V = np.linalg.svd(pose_sim_in_to_que[:3, :3])
     R = U @ V
     scale = np.mean(np.abs(S))
     depth_que = depth_in / scale * f_que / f_in
@@ -232,11 +242,12 @@ def pose_sim_to_pose_rigid(pose_sim_in_to_que, pose_in, K_que, K_in, center):
     center_sim = pose_apply(pose_sim_in_to_que, center_in)
     center_que = center_sim / center_sim[2] * depth_que
 
-    rotation = R @ pose_in[:3,:3]
+    rotation = R @ pose_in[:3, :3]
 
     offset = center_que - rotation @ center
-    pose_que = np.concatenate([rotation, offset[:,None]], 1)
+    pose_que = np.concatenate([rotation, offset[:, None]], 1)
     return pose_que
+
 
 def compose_sim_pose(scale, quat, offset, in_pose, object_center):
     offset = np.concatenate([offset, np.zeros(1)])
@@ -251,17 +262,16 @@ def compose_sim_pose(scale, quat, offset, in_pose, object_center):
     # que_pose_pr = pose_compose(pose_que, pose_inverse(que_pose_rect))  # obj to raw
 
 
-
-def pnp(points_3d, points_2d, camera_matrix,method=cv2.SOLVEPNP_ITERATIVE):
+def pnp(points_3d, points_2d, camera_matrix, method=cv2.SOLVEPNP_ITERATIVE):
     try:
         dist_coeffs = pnp.dist_coeffs
     except:
         dist_coeffs = np.zeros(shape=[8, 1], dtype='float64')
 
     assert points_3d.shape[0] == points_2d.shape[0], 'points 3D and points 2D must have same number of vertices'
-    if method==cv2.SOLVEPNP_EPNP:
-        points_3d=np.expand_dims(points_3d, 0)
-        points_2d=np.expand_dims(points_2d, 0)
+    if method == cv2.SOLVEPNP_EPNP:
+        points_3d = np.expand_dims(points_3d, 0)
+        points_2d = np.expand_dims(points_2d, 0)
 
     points_2d = np.ascontiguousarray(points_2d.astype(np.float64))
     points_3d = np.ascontiguousarray(points_3d.astype(np.float64))
@@ -271,7 +281,7 @@ def pnp(points_3d, points_2d, camera_matrix,method=cv2.SOLVEPNP_ITERATIVE):
                                camera_matrix,
                                dist_coeffs,
                                flags=method)
-                              # , None, None, False, cv2.SOLVEPNP_UPNP)
+    # , None, None, False, cv2.SOLVEPNP_UPNP)
 
     # R_exp, t, _ = cv2.solvePnPRansac(points_3D,
     #                            points_2D,
@@ -288,22 +298,23 @@ def pnp(points_3d, points_2d, camera_matrix,method=cv2.SOLVEPNP_ITERATIVE):
     return np.concatenate([R, t], axis=-1)
 
 
-def estimate_deepim_pose(ref_pose,ref_K,que_K,quat,offset,scale,object_center):
+def estimate_deepim_pose(ref_pose, ref_K, que_K, quat, offset, scale, object_center):
     ref_cen = project_points(object_center[None], ref_pose, ref_K)[0][0]
     que_cen = ref_cen + offset
     _, f_new = let_me_look_at_2d(que_cen, que_K)
     que_f = np.mean(np.diag(que_K)[:2])
     ref_f = np.mean(np.diag(ref_K)[:2])
-    que_depth = np.linalg.norm(pose_apply(ref_pose,object_center[None])[0])/ref_f*que_f/scale
-    que_cen = np.asarray([que_cen[0],que_cen[1],1],np.float32)
+    que_depth = np.linalg.norm(pose_apply(ref_pose, object_center[None])[0]) / ref_f * que_f / scale
+    que_cen = np.asarray([que_cen[0], que_cen[1], 1], np.float32)
     que_cen = np.linalg.inv(que_K) @ que_cen
     que_cen = que_cen / np.linalg.norm(que_cen)
     obj_cen_cam = que_cen * que_depth
     rotation = quat2mat(quat)
-    que_rot = rotation @ ref_pose[:,:3]
+    que_rot = rotation @ ref_pose[:, :3]
     que_trans = obj_cen_cam - que_rot @ object_center
-    pose_pr = np.concatenate([que_rot,que_trans[:,None]],1)
+    pose_pr = np.concatenate([que_rot, que_trans[:, None]], 1)
     return pose_pr
+
 
 def look_at_crop(img, K, pose, position, angle, scale, h, w):
     R_new, f_new = let_me_look_at_2d(position, K)
@@ -313,7 +324,7 @@ def look_at_crop(img, K, pose, position, angle, scale, h, w):
     K_new = np.asarray([[f_new, 0, w / 2], [0, f_new, h / 2], [0, 0, 1]], np.float32)
 
     H = K_new @ R_new @ np.linalg.inv(K)
-    if scale<1.0:
+    if scale < 1.0:
         img = downsample_gaussian_blur(img, scale)
     img_new = cv2.warpPerspective(img, H, (w, h), flags=cv2.INTER_LINEAR)
 
