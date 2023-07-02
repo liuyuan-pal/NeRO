@@ -738,7 +738,8 @@ class NeROShapeRenderer(nn.Module):
         else:
             return torch.zeros(1)
 
-    def render_core(self, rays_o, rays_d, z_vals, human_poses, cos_anneal_ratio=0.0, step=None, is_train=True, is_nerf=False):
+    def render_core(self, rays_o, rays_d, z_vals, human_poses, cos_anneal_ratio=0.0, step=None, is_train=True,
+                    is_nerf=False):
         batch_size, n_samples = z_vals.shape
 
         # section length in original space
@@ -756,10 +757,14 @@ class NeROShapeRenderer(nn.Module):
         alpha, sampled_color = torch.zeros(batch_size, n_samples), torch.zeros(batch_size, n_samples, 3)
 
         if torch.sum(outer_mask) > 0:
-            alpha[outer_mask], sampled_color[outer_mask] = self.compute_density_alpha(points[outer_mask],
-                                                                                      dists[outer_mask],
-                                                                                      -dirs[outer_mask],
-                                                                                      self.outer_nerf)
+            if is_nerf:
+                alpha[outer_mask] = torch.zeros_like(alpha[outer_mask])
+                sampled_color[outer_mask] = torch.zeros_like(sampled_color[outer_mask])
+            else:
+                alpha[outer_mask], sampled_color[outer_mask] = self.compute_density_alpha(points[outer_mask],
+                                                                                          dists[outer_mask],
+                                                                                          -dirs[outer_mask],
+                                                                                          self.outer_nerf)
 
         if torch.sum(inner_mask) > 0:
             alpha[inner_mask], gradients, feature_vector, inv_s, sdf = self.compute_sdf_alpha(points[inner_mask],
@@ -779,12 +784,12 @@ class NeROShapeRenderer(nn.Module):
         color = (sampled_color * weights[..., None]).sum(dim=1)
         acc = torch.sum(weights, -1)
         if is_nerf:
-            color = color + (1. - acc[...,None])
+            color = color + (1. - acc[..., None])
 
         outputs = {
             'ray_rgb': color,  # rn,3
             'gradient_error': gradient_error,  # rn
-            'acc': acc, # rn
+            'acc': acc,  # rn
         }
 
         if torch.sum(inner_mask) > 0:
