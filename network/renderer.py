@@ -422,6 +422,7 @@ class NeROShapeRenderer(nn.Module):
         target_imgs_info, target_img_ids = self.test_imgs_info, self.test_ids
         imgs_info = imgs_info_slice(target_imgs_info, torch.from_numpy(np.asarray([index], np.int64)))
         gt_depth, gt_mask = self.database.get_depth(target_img_ids[index])  # used in evaluation
+        is_nerf = self.cfg['is_nerf']
         if self.cfg['test_downsample_ratio']:
             imgs_info = imgs_info_downsample(imgs_info, self.cfg['downsample_ratio'])
             h, w, _ = gt_depth.shape
@@ -448,7 +449,7 @@ class NeROShapeRenderer(nn.Module):
         for ri in range(0, rn, trn):
             cur_ray_batch = {k: v[ri:ri + trn] for k, v in ray_batch.items()}
             rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, input_poses)
-            cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step)
+            cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step, is_nerf=is_nerf)
             for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
 
         for k in outputs_keys: outputs[k] = torch.cat(outputs[k], 0)
