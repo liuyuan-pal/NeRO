@@ -868,6 +868,7 @@ class NeROMaterialRenderer(nn.Module):
         'test_ray_num': 1024,
 
         'database_name': 'real/bear/raw_1024',
+        'is_nerf': False,
         'rgb_loss': 'charbonier',
 
         'mesh': 'data/meshes/bear_shape-300000.ply',
@@ -884,6 +885,7 @@ class NeROMaterialRenderer(nn.Module):
         self.cfg = {**self.default_cfg, **cfg}
         super().__init__()
         self.warned_normal = False
+        self.is_nerf = self.cfg['is_nerf']
         self._init_geometry()
         self._init_dataset(is_train)
         self._init_shader()
@@ -907,7 +909,8 @@ class NeROMaterialRenderer(nn.Module):
             self.test_imgs_info = imgs_info_to_torch(self.test_imgs_info, 'cpu')
             self.test_num = len(self.test_ids)
 
-            self.train_batch = self._construct_ray_batch(self.train_imgs_info)
+            self.train_batch = self._construct_nerf_ray_batch(
+                self.train_imgs_info) if self.is_nerf else self._construct_ray_batch(self.train_imgs_info)
             self.tbn = self.train_batch['rays_o'].shape[0]
             self._shuffle_train_batch()
 
@@ -1020,6 +1023,60 @@ class NeROMaterialRenderer(nn.Module):
             }
         return ray_batch
 
+    def _construct_nerf_ray_batch(self, imgs_info, device='cpu', is_train=True):
+        imn, _, h, w = imgs_info['imgs'].shape
+
+        i, j = torch.meshgrid(torch.linspace(0, w - 1, w),
+                              torch.linspace(0, h - 1, h))  # pytorch's meshgrid has indexing='ij'
+        i = i.t()
+        j = j.t()
+
+        K = imgs_info['Ks'][0]
+        dirs = torch.stack([(i - K[0][2]) / K[0][0], -(j - K[1][2]) / K[1][1], -torch.ones_like(i)], -1)
+
+        imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
+        poses = imgs_info['poses']  # imn,3,4
+        poses = poses.unsqueeze(1).repeat(1, h * w, 1, 1)
+        # if is_train:
+        #     masks = imgs_info['masks'].reshape(imn, h * w)
+
+        rays_d = [torch.sum(dirs[..., None, :].cpu() * poses[i, :3, :3], -1) for i in range(imn)]
+        rays_d = torch.stack(rays_d, 0).reshape(imn, h * w, 3)
+        rays_o = [poses[i, :3, -1].expand(rays_d[0].shape) for i in range(imn)]
+        rays_o = torch.stack(rays_o, 0).reshape(imn, h * w, 3)
+        self._warn_ray_tracing(rays_o)
+        inters, normals, depth, hit_mask = self.trace_in_batch(rays_o.reshape(-1, 3), rays_d.reshape(-1, 3),
+                                                               cpu=True)  # imn
+        inters, normals, depth, hit_mask = inters.reshape(imn, h * w, 3), normals.reshape(imn, h * w, 3), depth.reshape(
+            imn, h * w, 1), hit_mask.reshape(imn, h * w)
+        rn = imn * h * w
+        if is_train:
+            ray_batch = {
+                'rays_o': rays_o[hit_mask].to(device),
+                'rays_d': rays_d[hit_mask].to(device),
+                'normals': normals[hit_mask].to(device),
+                'depth': depth[hit_mask].to(device),
+                'human_poses': poses[hit_mask].to(device),
+                'rgb': imgs[hit_mask].to(device),
+                # 'dirs': dirs.float().reshape(rn, 3).to(device),
+            }
+        else:
+            assert imn == 1
+            ray_batch = {
+                'rays_o': rays_o[0].to(device),
+                'rays_d': rays_d[0].to(device),
+                'inters': inters[0].to(device),
+                'normals': normals[0].to(device),
+                'depth': depth[0].to(device),
+                'human_poses': poses[0].to(device),
+                'rgb': imgs[0].to(device),
+                'hit_mask': hit_mask[0].to(device),
+            }
+
+        return ray_batch
+        # if is_train:
+        #     ray_batch['masks'] = masks.float().reshape(rn).to(device)
+
     def _shuffle_train_batch(self):
         self.train_batch_i = 0
         shuffle_idxs = torch.randperm(self.tbn, device='cpu')  # shuffle
@@ -1072,7 +1129,9 @@ class NeROMaterialRenderer(nn.Module):
     def test_step(self, index):
         test_imgs_info = imgs_info_slice(self.test_imgs_info, torch.from_numpy(np.asarray([index], np.int64)))
         _, _, h, w = test_imgs_info['imgs'].shape
-        ray_batch = self._construct_ray_batch(test_imgs_info, 'cuda', False)
+        ray_batch = self._construct_nerf_ray_batch(test_imgs_info, 'cuda',
+                                                   False) if self.is_nerf else self._construct_ray_batch(test_imgs_info,
+                                                                                                         'cuda', False)
         trn = self.cfg['test_ray_num']
 
         output_keys = {'rgb_gt': 3, 'rgb_pr': 3, 'specular_light': 3, 'specular_color': 3, 'diffuse_light': 3,
