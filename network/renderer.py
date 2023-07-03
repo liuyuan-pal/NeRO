@@ -123,6 +123,7 @@ class NeROShapeRenderer(nn.Module):
     def __init__(self, cfg, training=True):
         super().__init__()
         self.cfg = {**self.default_cfg, **cfg}
+        self.is_nerf = self.cfg['is_nerf']
 
         self.sdf_network = SDFNetwork(d_out=self.cfg['sdf_d_out'], d_in=3, d_hidden=256,
                                       n_layers=self.cfg['sdf_n_layers'],
@@ -164,7 +165,8 @@ class NeROShapeRenderer(nn.Module):
         if hasattr(self, 'train_batch'):
             del self.train_batch
 
-        self.train_batch, self.train_poses, self.tbn, _, _ = self._construct_nerf_ray_batch(self.train_imgs_info)
+        self.train_batch, self.train_poses, self.tbn, _, _ = self._construct_nerf_ray_batch(
+            self.train_imgs_info) if self.is_nerf else self._construct_ray_batch(self.train_imgs_info)
         self.train_poses = self.train_poses.float().cuda()
 
         self._shuffle_train_batch()
@@ -422,7 +424,7 @@ class NeROShapeRenderer(nn.Module):
         target_imgs_info, target_img_ids = self.test_imgs_info, self.test_ids
         imgs_info = imgs_info_slice(target_imgs_info, torch.from_numpy(np.asarray([index], np.int64)))
         gt_depth, gt_mask = self.database.get_depth(target_img_ids[index])  # used in evaluation
-        is_nerf = self.cfg['is_nerf']
+        is_nerf = self.is_nerf
         if self.cfg['test_downsample_ratio']:
             imgs_info = imgs_info_downsample(imgs_info, self.cfg['downsample_ratio'])
             h, w, _ = gt_depth.shape
@@ -430,7 +432,8 @@ class NeROShapeRenderer(nn.Module):
             gt_depth, gt_mask = cv2.resize(gt_depth, (dw, dh), interpolation=cv2.INTER_NEAREST), \
                 cv2.resize(gt_mask.astype(np.uint8), (dw, dh), interpolation=cv2.INTER_NEAREST)
         gt_depth, gt_mask = torch.from_numpy(gt_depth), torch.from_numpy(gt_mask.astype(np.int32))
-        ray_batch, input_poses, rn, h, w = self._construct_nerf_ray_batch(imgs_info, is_train=False)
+        ray_batch, input_poses, rn, h, w = self._construct_nerf_ray_batch(imgs_info, is_train=False) \
+            if is_nerf else self._construct_ray_batch(imgs_info)
 
         input_poses = input_poses.float().cuda()
         for k, v in ray_batch.items(): ray_batch[k] = v.cuda()
@@ -448,7 +451,8 @@ class NeROShapeRenderer(nn.Module):
         outputs = {k: [] for k in outputs_keys}
         for ri in range(0, rn, trn):
             cur_ray_batch = {k: v[ri:ri + trn] for k, v in ray_batch.items()}
-            rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, input_poses)
+            rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, input_poses) \
+                if is_nerf else self._process_ray_batch(cur_ray_batch, input_poses)
             cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step,
                                       is_nerf=is_nerf)
             for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
@@ -467,14 +471,14 @@ class NeROShapeRenderer(nn.Module):
 
     def train_step(self, step):
         rn = self.cfg['train_ray_num']
-        is_nerf = self.cfg['is_nerf']
+        is_nerf = self.is_nerf
         # fetch to gpu
         train_ray_batch = {k: v[self.train_batch_i:self.train_batch_i + rn].cuda() for k, v in self.train_batch.items()}
         self.train_batch_i += rn
         if self.train_batch_i + rn >= self.tbn: self._shuffle_train_batch()
         train_poses = self.train_poses.cuda()
-        # rays_o, rays_d, near, far, human_poses = self._process_ray_batch(train_ray_batch, train_poses)
-        rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(train_ray_batch, train_poses)
+        rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(train_ray_batch, train_poses) \
+            if is_nerf else self._process_ray_batch(train_ray_batch, train_poses)
 
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
                               step=step, is_nerf=is_nerf)
