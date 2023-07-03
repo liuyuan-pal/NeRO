@@ -1054,6 +1054,7 @@ class NeROMaterialRenderer(nn.Module):
             ray_batch = {
                 'rays_o': rays_o[hit_mask].to(device),
                 'rays_d': rays_d[hit_mask].to(device),
+                'inters': inters[hit_mask].to(device),
                 'normals': normals[hit_mask].to(device),
                 'depth': depth[hit_mask].to(device),
                 'human_poses': poses[hit_mask].to(device),
