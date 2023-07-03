@@ -449,7 +449,8 @@ class NeROShapeRenderer(nn.Module):
         for ri in range(0, rn, trn):
             cur_ray_batch = {k: v[ri:ri + trn] for k, v in ray_batch.items()}
             rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, input_poses)
-            cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step, is_nerf=is_nerf)
+            cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step,
+                                      is_nerf=is_nerf)
             for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
 
         for k in outputs_keys: outputs[k] = torch.cat(outputs[k], 0)
