@@ -1036,7 +1036,6 @@ class NeROMaterialRenderer(nn.Module):
 
         imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
         poses = imgs_info['poses']  # imn,3,4
-        poses = poses.unsqueeze(1).repeat(1, h * w, 1, 1)
         # if is_train:
         #     masks = imgs_info['masks'].reshape(imn, h * w)
 
@@ -1049,7 +1048,8 @@ class NeROMaterialRenderer(nn.Module):
                                                                cpu=True)  # imn
         inters, normals, depth, hit_mask = inters.reshape(imn, h * w, 3), normals.reshape(imn, h * w, 3), depth.reshape(
             imn, h * w, 1), hit_mask.reshape(imn, h * w)
-        rn = imn * h * w
+        poses = poses.unsqueeze(1).repeat(1, h * w, 1, 1)
+
         if is_train:
             ray_batch = {
                 'rays_o': rays_o[hit_mask].to(device),
