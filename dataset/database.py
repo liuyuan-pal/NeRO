@@ -418,8 +418,6 @@ def get_database_split(database: BaseDatabase, split_type='validation'):
         test_ids = img_ids[:1]
         train_ids = img_ids[1:]
     elif split_type=='test':
-        database_name = database.database_name
-        assert database_name.startswith('render')
         test_ids, train_ids = read_pickle('configs/synthetic_split_128.pkl')
     else:
         raise NotImplementedError
