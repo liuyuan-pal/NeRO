@@ -101,8 +101,8 @@ class Trainer:
         self.best_pth_fn = os.path.join(self.model_dir, 'model_best.pth')
 
     def run(self):
-        self._init_dataset()  # init dataset (currently not suitable for custom dataset)
-        self._init_network()  # init network (two stages)
+        self._init_dataset()
+        self._init_network()
         self._init_logger()
 
         best_para, start_step = self._load_model()
@@ -124,7 +124,7 @@ class Trainer:
 
             self.train_network.train()
             self.network.train()
-            lr = self.lr_manager(self.optimizer, step)  # get learning rate for current step
+            lr = self.lr_manager(self.optimizer, step)
 
             self.optimizer.zero_grad()
             self.train_network.zero_grad()
