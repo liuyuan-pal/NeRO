@@ -177,52 +177,6 @@ class NeROShapeRenderer(nn.Module):
         for k, v in self.train_batch.items():
             self.train_batch[k] = v[shuffle_idxs]
 
-    def _construct_render_poses(self):
-        trans_t = lambda t: torch.Tensor([
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, t],
-            [0, 0, 0, 1]]).float()
-
-        rot_phi = lambda phi: torch.Tensor([
-            [1, 0, 0, 0],
-            [0, np.cos(phi), -np.sin(phi), 0],
-            [0, np.sin(phi), np.cos(phi), 0],
-            [0, 0, 0, 1]]).float()
-
-        rot_theta = lambda th: torch.Tensor([
-            [np.cos(th), 0, -np.sin(th), 0],
-            [0, 1, 0, 0],
-            [np.sin(th), 0, np.cos(th), 0],
-            [0, 0, 0, 1]]).float()
-
-        def pose_spherical(theta, phi, radius):
-            c2w = trans_t(radius)
-            c2w = rot_phi(phi / 180. * np.pi) @ c2w
-            c2w = rot_theta(theta / 180. * np.pi) @ c2w
-            c2w = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ c2w
-            c2w[0, 3] = 0.0
-            c2w[1, 3] = 0.0
-            c2w[2, 3] = 3.0
-            return c2w
-
-        render_poses = torch.stack(
-            [pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40 + 1)[:-1]], 0)
-
-        render_poses = self.train_poses[:20].clone()
-        for i in range(20):
-            render_poses[i, 0, 0] += torch.randn(1)[0] * 0.1
-            render_poses[i, 0, 1] += torch.randn(1)[0] * 0.1
-            render_poses[i, 0, 2] += torch.randn(1)[0] * 0.1
-            render_poses[i, 1, 0] += torch.randn(1)[0] * 0.1
-            render_poses[i, 1, 1] += torch.randn(1)[0] * 0.1
-            render_poses[i, 1, 2] += torch.randn(1)[0] * 0.1
-            render_poses[i, 2, 1] += torch.randn(1)[0] * 0.1
-            render_poses[i, 2, 2] += torch.randn(1)[0] * 0.1
-            render_poses[i, 2, 0] += torch.randn(1)[0] * 0.1
-
-        return render_poses[:, :3, :]
-
     def _construct_ray_batch(self, imgs_info, device='cpu'):
         imn, _, h, w = imgs_info['imgs'].shape
         coords = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1)[:, :, (1, 0)]  # h,w,2
@@ -279,27 +233,27 @@ class NeROShapeRenderer(nn.Module):
             ray_batch['masks'] = masks.float().reshape(rn).to(device)
         return ray_batch, poses, rn, h, w
 
-    def _construct_render_batch(self, imgs_info, device='cpu'):
-        imn, _, h, w = imgs_info['imgs'].shape
-        coords = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1)[:, :, (1, 0)]  # h,w,2
-        coords = coords.to(device)
-        coords = coords.float()
-        coords = coords.reshape(h * w, 2)
-        coords = torch.cat([coords + 0.5, torch.ones(h * w, 1, dtype=torch.float32, device=device)], 1)  # imn,h*w,3
+    # def _construct_render_batch(self, imgs_info, device='cpu'):
+    #     imn, _, h, w = imgs_info['imgs'].shape
+    #     coords = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1)[:, :, (1, 0)]  # h,w,2
+    #     coords = coords.to(device)
+    #     coords = coords.float()
+    #     coords = coords.reshape(h * w, 2)
+    #     coords = torch.cat([coords + 0.5, torch.ones(h * w, 1, dtype=torch.float32, device=device)], 1)  # imn,h*w,3
 
-        # h*w,3 @ 3,3 => imn,h*w,3
-        dirs = coords @ torch.inverse(imgs_info['Ks'][0]).permute(1, 0)
-        poses = self._construct_render_poses().float().to(device)
-        pose_n = poses.shape[0]
-        idxs = torch.arange(pose_n, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
+    #     # h*w,3 @ 3,3 => imn,h*w,3
+    #     dirs = coords @ torch.inverse(imgs_info['Ks'][0]).permute(1, 0)
+    #     poses = self._construct_render_poses().float().to(device)
+    #     pose_n = poses.shape[0]
+    #     idxs = torch.arange(pose_n, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
 
-        rn = pose_n * h * w
-        dirs = dirs.unsqueeze(0).repeat(pose_n, 1, 1)
-        ray_batch = {
-            'dirs': dirs.float().to(device),
-            'idxs': idxs.long().to(device),
-        }
-        return ray_batch, poses, rn, h, w, pose_n
+    #     rn = pose_n * h * w
+    #     dirs = dirs.unsqueeze(0).repeat(pose_n, 1, 1)
+    #     ray_batch = {
+    #         'dirs': dirs.float().to(device),
+    #         'idxs': idxs.long().to(device),
+    #     }
+    #     return ray_batch, poses, rn, h, w, pose_n
 
     def nvs(self, pose, K, h, w):
         device = 'cuda'
@@ -399,26 +353,26 @@ class NeROShapeRenderer(nn.Module):
 
         return rays_o, rays_d, near, far, poses[idxs]  # rn, 3, 4
 
-    def _process_render_ray_batch(self, ray_batch, poses):
-        dirs = ray_batch['dirs']  # rn,3
+    # def _process_render_ray_batch(self, ray_batch, poses):
+    #     dirs = ray_batch['dirs']  # rn,3
 
-        render_n = poses.shape[0]
-        rays_o = poses[:, :, :3].permute(0, 2, 1) @ -poses[:, :, 3:]
-        rays_o = rays_o[:, :, 0]
+    #     render_n = poses.shape[0]
+    #     rays_o = poses[:, :, :3].permute(0, 2, 1) @ -poses[:, :, 3:]
+    #     rays_o = rays_o[:, :, 0]
 
-        rays_d = []
-        for i in range(render_n):
-            rays_d_i = poses[i, :, :3][None, ...].permute(0, 2, 1) @ dirs.unsqueeze(-1)
-            rays_d_i = rays_d_i[..., 0]  # rn,3
-            rays_d.append(rays_d_i[None, ...])
+    #     rays_d = []
+    #     for i in range(render_n):
+    #         rays_d_i = poses[i, :, :3][None, ...].permute(0, 2, 1) @ dirs.unsqueeze(-1)
+    #         rays_d_i = rays_d_i[..., 0]  # rn,3
+    #         rays_d.append(rays_d_i[None, ...])
 
-        rays_d = torch.cat(rays_d, dim=0)
+    #     rays_d = torch.cat(rays_d, dim=0)
 
-        rays_d = F.normalize(rays_d, dim=-1)
-        near, far = self.near_far_from_sphere(rays_o, rays_d)
+    #     rays_d = F.normalize(rays_d, dim=-1)
+    #     near, far = self.near_far_from_sphere(rays_o, rays_d)
 
-        human_poses = self.get_human_coordinate_poses(poses)
-        return rays_o, rays_d, near, far, human_poses  # rn, 3, 4
+    #     human_poses = self.get_human_coordinate_poses(poses)
+    #     return rays_o, rays_d, near, far, human_poses  # rn, 3, 4
 
     def test_step(self, index, step, ):
         target_imgs_info, target_img_ids = self.test_imgs_info, self.test_ids
@@ -487,38 +441,38 @@ class NeROShapeRenderer(nn.Module):
             outputs['loss_mask'] = F.l1_loss(train_ray_batch['masks'], outputs['acc'], reduction='mean')
         return outputs
 
-    def render_step(self, step):  # TODO
-        self.eval()
+    # def render_step(self, step):
+    #     self.eval()
 
-        render_batch, render_poses, rn, h, w, pose_n = self._construct_render_batch(self.train_imgs_info)
-        render_poses = render_poses.float().cuda()
-        for k, v in render_batch.items(): render_batch[k] = v.cuda()
-        trn = self.cfg['test_ray_num']
+    #     render_batch, render_poses, rn, h, w, pose_n = self._construct_render_batch(self.train_imgs_info)
+    #     render_poses = render_poses.float().cuda()
+    #     for k, v in render_batch.items(): render_batch[k] = v.cuda()
+    #     trn = self.cfg['test_ray_num']
 
-        outputs_keys = ['ray_rgb', 'gradient_error', 'normal', 'depth']
-        outputs_keys += [
-            'diffuse_albedo', 'diffuse_light', 'diffuse_color',
-            'specular_albedo', 'specular_light', 'specular_color', 'specular_ref',
-            'metallic', 'roughness', 'occ_prob', 'indirect_light', 'occ_prob_gt',
-        ]
+    #     outputs_keys = ['ray_rgb', 'gradient_error', 'normal', 'depth']
+    #     outputs_keys += [
+    #         'diffuse_albedo', 'diffuse_light', 'diffuse_color',
+    #         'specular_albedo', 'specular_light', 'specular_color', 'specular_ref',
+    #         'metallic', 'roughness', 'occ_prob', 'indirect_light', 'occ_prob_gt',
+    #     ]
 
-        final_outputs = []
-        for pose in range(pose_n):
-            outputs = {k: [] for k in outputs_keys}
-            for ri in trange(0, h * w, trn):
-                cur_ray_batch = {k: v[pose, ri:ri + trn, :] for k, v in render_batch.items()}
-                rays_o, rays_d, near, far, human_poses = self._process_ray_batch(cur_ray_batch, render_poses)
-                cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step)
-                for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
+    #     final_outputs = []
+    #     for pose in range(pose_n):
+    #         outputs = {k: [] for k in outputs_keys}
+    #         for ri in trange(0, h * w, trn):
+    #             cur_ray_batch = {k: v[pose, ri:ri + trn, :] for k, v in render_batch.items()}
+    #             rays_o, rays_d, near, far, human_poses = self._process_ray_batch(cur_ray_batch, render_poses)
+    #             cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=step)
+    #             for k in outputs_keys: outputs[k].append(cur_outputs[k].detach())
 
-            for k in outputs_keys: outputs[k] = torch.cat(outputs[k], 0)
-            outputs['ray_rgb'] = outputs['ray_rgb'].reshape(h, w, 3)
-            import imageio
-            imageio.imwrite("test_{}.png".format(pose), outputs['ray_rgb'].cpu())
-            final_outputs.append(outputs)
+    #         for k in outputs_keys: outputs[k] = torch.cat(outputs[k], 0)
+    #         outputs['ray_rgb'] = outputs['ray_rgb'].reshape(h, w, 3)
+    #         import imageio
+    #         imageio.imwrite("test_{}.png".format(pose), outputs['ray_rgb'].cpu())
+    #         final_outputs.append(outputs)
 
-        self.train()
-        return outputs
+    #     self.train()
+    #     return outputs
 
     def compute_rgb_loss(self, rgb_pr, rgb_gt):
         if self.cfg['rgb_loss'] == 'l2':
@@ -824,13 +778,13 @@ class NeROShapeRenderer(nn.Module):
     def forward(self, data):
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
         is_train = 'eval' not in data
-        is_render = "render" in data
+        # is_render = "render" in data  # novel view render
         step = data['step']
 
         if is_train:
             outputs = self.train_step(step)
-        elif is_render:
-            outputs = self.render_step(step)
+        # elif is_render:
+        #     outputs = self.render_step(step)
         else:
             index = data['index']
             outputs = self.test_step(index, step=step)

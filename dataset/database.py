@@ -269,11 +269,11 @@ class GlossySyntheticDatabase(BaseDatabase):
         raise NotImplementedError
 
 class CustomDatabase(BaseDatabase):
-    def __init__(self, database_name):
+    def __init__(self, database_name, dataset_dir):
         super().__init__(database_name)
         _, self.object_name, self.max_len = database_name.split('/')
 
-        self.root = f'data/custom/{self.object_name}'
+        self.root = f'{dataset_dir}/{self.object_name}'
         self._parse_colmap()
         self._normalize()
         if not self.max_len.startswith('raw'):

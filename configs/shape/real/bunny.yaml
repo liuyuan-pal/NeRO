@@ -18,6 +18,7 @@ eikonal_weight: 0.1
 
 ####dataset#####
 train_dataset_type: dummy
+dataset_dir: your_dataset_dir
 train_dataset_cfg:
   database_name: real/bunny/raw_1024
 val_set_list:

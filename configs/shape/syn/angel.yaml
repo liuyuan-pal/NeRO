@@ -16,6 +16,7 @@ freeze_inv_s_step: 15000
 
 ####dataset#####
 train_dataset_type: dummy
+dataset_dir: your_dataset_dir
 train_dataset_cfg:
   database_name: syn/angel
 val_set_list:

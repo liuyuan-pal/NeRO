@@ -16,7 +16,7 @@ freeze_inv_s_step: 15000
 
 ####dataset#####
 train_dataset_type: dummy
-dataset_dir: /data00/yzy/Git_Project/data/refnerf/refnerf
+dataset_dir: your_dataset_dir
 train_dataset_cfg:
   database_name: nerf/helmet
 val_set_list:
