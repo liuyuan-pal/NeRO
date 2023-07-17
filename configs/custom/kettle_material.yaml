@@ -1,0 +1,44 @@
+name: kettle_material
+
+####network#####
+network: material
+database_name: custom/kettle/raw_1024
+mesh: data/meshes/kettle_shape-300000.ply
+
+reg_diffuse_light: true                 # neutral light regularization
+reg_diffuse_light_lambda: 0.1           # weights for this neutral light reg
+reg_mat: true                           # material smoothness regularization
+shader_cfg:
+  diffuse_sample_num: 512               # number of rays sampled in the diffuse lobe
+  specular_sample_num: 256              # number of rays sampled in the specular lobe
+  outer_light_version: sphere_direction # we add the sphere intersection point encoding in the direct light
+  light_exp_max: 5.0                    # maximum radiance value of a single ray is exp(5.0)
+  inner_light_exp_max: 5.0              # maximum radiance value of a single ray is exp(5.0)
+  human_lights: true                    # model the reflected lights of the photo capturer
+
+######loss######
+loss: ['nerf_render','mat_reg']
+val_metric: ['mat_render']
+key_metric_name: psnr
+
+####dataset#####
+train_dataset_type: dummy
+train_dataset_cfg:
+  database_name: custom/kettle/raw_1024
+val_set_list:
+  -
+    name: val
+    type: dummy
+    cfg:
+      database_name: custom/kettle/raw_1024
+
+####trainier####
+optimizer_type: adam
+lr_type: warm_up_cos
+lr_cfg:
+  end_warm: 1000
+  end_iter: 100000
+total_step: 100000
+val_interval: 5000
+save_interval: 500
+train_log_step: 10

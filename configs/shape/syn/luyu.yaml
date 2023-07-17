@@ -3,7 +3,7 @@ name: luyu_shape
 ####network#####
 network: shape
 database_name: syn/luyu
-apply_acc_loss: true
+apply_occ_loss: true
 occ_loss_step: 20000
 
 ######loss######
