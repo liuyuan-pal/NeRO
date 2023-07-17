@@ -16,18 +16,30 @@ from utils.raw_utils import linear_to_srgb
 from tqdm import trange
 
 
-def build_imgs_info(database: BaseDatabase, img_ids):
+def build_imgs_info(database: BaseDatabase, img_ids, is_nerf=False):
     images = [database.get_image(img_id) for img_id in img_ids]
     poses = [database.get_pose(img_id) for img_id in img_ids]
     Ks = [database.get_K(img_id) for img_id in img_ids]
-    masks = [database.get_depth(img_id)[1] for img_id in img_ids]
 
     images = np.stack(images, 0)
-    masks = np.stack(masks, 0)
-    # images = color_map_forward(images).astype(np.float32)  # TODO maybe not used for nerf
+    if is_nerf:
+        masks = [database.get_depth(img_id)[1] for img_id in img_ids]
+        masks = np.stack(masks, 0)
+    else:
+        images = color_map_forward(images).astype(np.float32)
     Ks = np.stack(Ks, 0).astype(np.float32)
     poses = np.stack(poses, 0).astype(np.float32)
-    return {'imgs': images, 'Ks': Ks, 'poses': poses, "masks": masks}
+
+    imgs_info = {
+        'imgs': images, 
+        'Ks': Ks, 
+        'poses': poses,
+    }
+
+    if is_nerf:
+        imgs_info['masks'] = masks
+    
+    return imgs_info
 
 
 def imgs_info_to_torch(imgs_info, device='cpu'):
@@ -151,13 +163,13 @@ class NeROShapeRenderer(nn.Module):
         self.train_ids, self.test_ids = get_database_split(self.database)
         self.train_ids = np.asarray(self.train_ids)
 
-        self.train_imgs_info = build_imgs_info(self.database, self.train_ids)
+        self.train_imgs_info = build_imgs_info(self.database, self.train_ids, self.is_nerf)
         self.train_imgs_info = imgs_info_to_torch(self.train_imgs_info, 'cpu')
         b, _, h, w = self.train_imgs_info['imgs'].shape
         print(f'training size {h} {w} ...')
         self.train_num = len(self.train_ids)
 
-        self.test_imgs_info = build_imgs_info(self.database, self.test_ids)
+        self.test_imgs_info = build_imgs_info(self.database, self.test_ids, self.is_nerf)
         self.test_imgs_info = imgs_info_to_torch(self.test_imgs_info, 'cpu')
         self.test_num = len(self.test_ids)
 
@@ -187,7 +199,7 @@ class NeROShapeRenderer(nn.Module):
                            2)  # imn,h*w,3
 
         # imn,h*w,3 @ imn,3,3 => imn,h*w,3
-        dirs = coords @ torch.inverse(imgs_info['Ks']).permute(0, 2, 1)  # TODO maybe different
+        dirs = coords @ torch.inverse(imgs_info['Ks']).permute(0, 2, 1)
         imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
         idxs = torch.arange(imn, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
         poses = imgs_info['poses']  # imn,3,4
@@ -340,7 +352,7 @@ class NeROShapeRenderer(nn.Module):
         human_poses = self.get_human_coordinate_poses(poses)
         return rays_o, rays_d, near, far, human_poses[idxs]  # rn, 3, 4
 
-    def _process_nerf_ray_batch(self, ray_batch, poses):  # TODO need to fit nerf
+    def _process_nerf_ray_batch(self, ray_batch, poses):
         # dirs = ray_batch['dirs']  # rn,3
         idxs = ray_batch['idxs'][..., 0]  # rn
         rays_d = ray_batch['rays_d']
@@ -381,7 +393,7 @@ class NeROShapeRenderer(nn.Module):
         is_nerf = self.is_nerf
         if self.cfg['test_downsample_ratio']:
             imgs_info = imgs_info_downsample(imgs_info, self.cfg['downsample_ratio'])
-            h, w, _ = gt_depth.shape
+            h, w = gt_depth.shape
             dh, dw = int(self.cfg['downsample_ratio'] * h), int(self.cfg['downsample_ratio'] * w)
             gt_depth, gt_mask = cv2.resize(gt_depth, (dw, dh), interpolation=cv2.INTER_NEAREST), \
                 cv2.resize(gt_mask.astype(np.uint8), (dw, dh), interpolation=cv2.INTER_NEAREST)
@@ -437,7 +449,7 @@ class NeROShapeRenderer(nn.Module):
         outputs = self.render(rays_o, rays_d, near, far, human_poses, -1, self.get_anneal_val(step), is_train=True,
                               step=step, is_nerf=is_nerf)
         outputs['loss_rgb'] = self.compute_rgb_loss(outputs['ray_rgb'], train_ray_batch['rgbs'])  # ray_loss
-        if is_nerf:  # TODO only nerf dataset add loss_mask
+        if is_nerf:  # only nerf dataset add loss_mask
             outputs['loss_mask'] = F.l1_loss(train_ray_batch['masks'], outputs['acc'], reduction='mean')
         return outputs
 
@@ -859,11 +871,11 @@ class NeROMaterialRenderer(nn.Module):
         self.train_ids = np.asarray(self.train_ids)
 
         if is_train:
-            self.train_imgs_info = build_imgs_info(self.database, self.train_ids)
+            self.train_imgs_info = build_imgs_info(self.database, self.train_ids, self.is_nerf)
             self.train_imgs_info = imgs_info_to_torch(self.train_imgs_info, 'cpu')
             self.train_num = len(self.train_ids)
 
-            self.test_imgs_info = build_imgs_info(self.database, self.test_ids)
+            self.test_imgs_info = build_imgs_info(self.database, self.test_ids, self.is_nerf)
             self.test_imgs_info = imgs_info_to_torch(self.test_imgs_info, 'cpu')
             self.test_num = len(self.test_ids)
 
