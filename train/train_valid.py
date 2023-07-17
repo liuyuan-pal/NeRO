@@ -28,7 +28,7 @@ class ValidationEvaluator:
             with torch.no_grad():
                 outputs = model(data)
 
-            for loss in losses:  # 输出jgp的代码嵌套在loss里面了，反正都是前向call
+            for loss in losses:
                 loss_results = loss(outputs, data, step, data_index=data_i, model_name=model_name)
                 for k, v in loss_results.items():
                     if type(v) == torch.Tensor:

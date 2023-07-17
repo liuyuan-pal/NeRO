@@ -793,7 +793,7 @@ class MCShadingNetwork(nn.Module):
 
     def sample_diffuse_directions(self, normals, is_train):
         # normals [pn,3]
-        z = normals  # pn,3  TODO 正交坐标系如何得到
+        z = normals  # pn,3
         x = self.get_orthogonal_directions(normals)  # pn,3
         y = torch.cross(z, x, dim=-1)  # pn,3
         # y = torch.cross(z, x, dim=-1) # pn,3
