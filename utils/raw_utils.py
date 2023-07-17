@@ -1,12 +1,13 @@
 import torch
 import numpy as np
 
+
 def linear_to_srgb(linear):
     if isinstance(linear, torch.Tensor):
         """Assumes `linear` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
         eps = torch.finfo(torch.float32).eps
         srgb0 = 323 / 25 * linear
-        srgb1 = (211 * torch.clamp(linear, min=eps)**(5 / 12) - 11) / 200
+        srgb1 = (211 * torch.clamp(linear, min=eps) ** (5 / 12) - 11) / 200
         return torch.where(linear <= 0.0031308, srgb0, srgb1)
     elif isinstance(linear, np.ndarray):
         eps = np.finfo(np.float32).eps
@@ -16,21 +17,23 @@ def linear_to_srgb(linear):
     else:
         raise NotImplementedError
 
+
 def srgb_to_linear(srgb):
     if isinstance(srgb, torch.Tensor):
         """Assumes `srgb` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
         eps = torch.finfo(torch.float32).eps
         linear0 = 25 / 323 * srgb
-        linear1 = torch.clamp(((200 * srgb + 11) / (211)), min=eps)**(12 / 5)
+        linear1 = torch.clamp(((200 * srgb + 11) / (211)), min=eps) ** (12 / 5)
         return torch.where(srgb <= 0.04045, linear0, linear1)
     elif isinstance(srgb, np.ndarray):
         """Assumes `srgb` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
         eps = np.finfo(np.float32).eps
         linear0 = 25 / 323 * srgb
-        linear1 = np.maximum(((200 * srgb + 11) / (211)), eps)**(12 / 5)
+        linear1 = np.maximum(((200 * srgb + 11) / (211)), eps) ** (12 / 5)
         return np.where(srgb <= 0.04045, linear0, linear1)
     else:
         raise NotImplementedError
+
 
 def reshape_quads(*planes):
     """Reshape pixels from four input images to make tiled 2x2 quads."""
@@ -44,6 +47,7 @@ def reshape_quads(*planes):
     zup = zup.reshape((shape[0] * 2, shape[1] * 2))
     return zup
 
+
 def bilinear_upsample(z):
     """2x bilinear image upsample."""
     # Using np.roll makes the right and bottom edges wrap around. The raw image
@@ -56,6 +60,7 @@ def bilinear_upsample(z):
     # Diagonally interpolated values.
     zxy = .5 * (zx + np.roll(zx, -1, axis=-2))
     return reshape_quads(z, zx, zy, zxy)
+
 
 def upsample_green(g1, g2):
     """Special 2x upsample from the two green channels."""
@@ -71,10 +76,11 @@ def upsample_green(g1, g2):
     # so alt + z will have every pixel filled in.
     return alt + z
 
+
 def bilinear_demosaic_raw_nerf(bayer, mode='rggb'):
-    if mode=='rggb':
+    if mode == 'rggb':
         r, g1, g2, b = [bayer[(i // 2)::2, (i % 2)::2] for i in range(4)]
-    elif mode=='bggr':
+    elif mode == 'bggr':
         b, g1, g2, r = [bayer[(i // 2)::2, (i % 2)::2] for i in range(4)]
     else:
         raise NotImplementedError
@@ -86,10 +92,11 @@ def bilinear_demosaic_raw_nerf(bayer, mode='rggb'):
     rgb = np.stack([r, g, b], -1)
     return rgb
 
+
 def bilinear_demosaic_simple(bayer, mode='rggb'):
-    if mode=='rggb':
+    if mode == 'rggb':
         r, g1, g2, b = [bayer[(i // 2)::2, (i % 2)::2] for i in range(4)]
-    elif mode=='bggr':
+    elif mode == 'bggr':
         b, g1, g2, r = [bayer[(i // 2)::2, (i % 2)::2] for i in range(4)]
     else:
         raise NotImplementedError
