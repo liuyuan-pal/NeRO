@@ -19,6 +19,7 @@ freeze_inv_s_step: 15000 # we freeze the 1/s in the NeuS for 15k steps for initi
 
 ####dataset#####
 train_dataset_type: dummy
+dataset_dir: your_dataset_dir
 train_dataset_cfg:
   database_name: custom/kettle/raw_1024
 val_set_list:

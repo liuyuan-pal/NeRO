@@ -19,6 +19,7 @@ freeze_inv_s_step: 15000
 
 ####dataset#####
 train_dataset_type: dummy
+dataset_dir: your_dataset_dir
 train_dataset_cfg:
   database_name: real/maneki/raw_1024
 val_set_list:

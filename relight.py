@@ -12,7 +12,7 @@ def main():
     parser.add_argument('--trans', dest='trans', action='store_true', default=False)
     args = parser.parse_args()
 
-    cmds=[
+    cmds = [
         args.blender, '--background', '--python', 'blender_backend/relight_backend.py', '--',
         '--output', f'data/relight/{args.name}',
         '--mesh', args.mesh,
@@ -23,5 +23,6 @@ def main():
         cmds.append('--trans')
     subprocess.run(cmds)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

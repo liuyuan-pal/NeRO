@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 
+
 class LearningRateManager(abc.ABC):
     @staticmethod
     def set_lr_for_all(optimizer, lr):
@@ -17,14 +18,16 @@ class LearningRateManager(abc.ABC):
     def __call__(self, optimizer, step, *args, **kwargs):
         pass
 
+
 class WarmUpCosLR(LearningRateManager):
-    default_cfg={
+    default_cfg = {
         'end_warm': 5000,
         'end_iter': 300000,
         'lr': 5e-4,
     }
+
     def __init__(self, cfg):
-        cfg={**self.default_cfg,**cfg}
+        cfg = {**self.default_cfg, **cfg}
         self.warm_up_end = cfg['end_warm']
         self.learning_rate_alpha = 0.05
         self.end_iter = cfg['end_iter']
@@ -42,6 +45,7 @@ class WarmUpCosLR(LearningRateManager):
         self.set_lr_for_all(optimizer, lr)
         return lr
 
-name2lr_manager={
+
+name2lr_manager = {
     'warm_up_cos': WarmUpCosLR,
 }

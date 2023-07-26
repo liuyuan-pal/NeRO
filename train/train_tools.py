@@ -25,6 +25,7 @@ def load_model(model, optim, model_dir, epoch=-1):
     print('load {} epoch {}'.format(model_dir, pretrained_model['epoch'] + 1))
     return pretrained_model['epoch'] + 1
 
+
 def adjust_learning_rate(optimizer, epoch, lr_decay_rate, lr_decay_epoch, min_lr=1e-5):
     if ((epoch + 1) % lr_decay_epoch) != 0:
         return
@@ -37,6 +38,7 @@ def adjust_learning_rate(optimizer, epoch, lr_decay_rate, lr_decay_epoch, min_lr
 
     print('changing learning rate {:5f} to {:.5f}'.format(lr_before, max(param_group['lr'], min_lr)))
 
+
 def reset_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         # print(param_group)
@@ -45,6 +47,7 @@ def reset_learning_rate(optimizer, lr):
     # print('changing learning rate {:5f} to {:.5f}'.format(lr_before,lr))
     return lr
 
+
 def save_model(net, optim, epoch, model_dir):
     os.system('mkdir -p {}'.format(model_dir))
     torch.save({
@@ -52,6 +55,7 @@ def save_model(net, optim, epoch, model_dir):
         'optim': optim.feats_state_dict(),
         'epoch': epoch
     }, os.path.join(model_dir, '{}.pth'.format(epoch)))
+
 
 class Recorder(object):
     def __init__(self, rec_dir, rec_fn):
@@ -92,20 +96,21 @@ class Recorder(object):
 
 class Logger:
     def __init__(self, log_dir):
-        self.log_dir=log_dir
+        self.log_dir = log_dir
         self.data = OrderedDict()
         self.writer = SummaryWriter(log_dir=log_dir)
 
-    def log(self,data, prefix='train',step=None,verbose=False):
-        msg=f'{prefix} '
+    def log(self, data, prefix='train', step=None, verbose=False):
+        msg = f'{prefix} '
         for k, v in data.items():
             msg += f'{k} {v:.5f} '
-            self.writer.add_scalar(f'{prefix}/{k}',v,step)
+            self.writer.add_scalar(f'{prefix}/{k}', v, step)
 
         if verbose:
             print(msg)
-        with open(os.path.join(self.log_dir,f'{prefix}.txt'), 'a') as f:
+        with open(os.path.join(self.log_dir, f'{prefix}.txt'), 'a') as f:
             f.write(msg + '\n')
+
 
 def print_shape(obj):
     if type(obj) == list or type(obj) == tuple:
@@ -113,6 +118,7 @@ def print_shape(obj):
         print(shapes)
     else:
         print(obj.shape)
+
 
 def overwrite_configs(cfg_base: dict, cfg: dict):
     keysNotinBase = []
@@ -127,47 +133,51 @@ def overwrite_configs(cfg_base: dict, cfg: dict):
         print(keysNotinBase)
     return cfg_base
 
+
 def to_cuda(data):
-    if type(data)==list:
+    if type(data) == list:
         results = []
         for i, item in enumerate(data):
             results.append(to_cuda(item))
         return results
-    elif type(data)==dict:
-        results={}
-        for k,v in data.items():
-            results[k]=to_cuda(v)
+    elif type(data) == dict:
+        results = {}
+        for k, v in data.items():
+            results[k] = to_cuda(v)
         return results
     elif type(data).__name__ == "Tensor":
         return data.cuda()
     else:
         return data
 
+
 def dim_extend(data_list):
     results = []
     for i, tensor in enumerate(data_list):
-        results.append(tensor[None,...])
+        results.append(tensor[None, ...])
     return results
 
+
 class MultiGPUWrapper(nn.Module):
-    def __init__(self,network,losses):
+    def __init__(self, network, losses):
         super().__init__()
-        self.network=network
-        self.losses=losses
+        self.network = network
+        self.losses = losses
 
     def forward(self, data_gt):
-        results={}
-        data_pr=self.network(data_gt)
+        results = {}
+        data_pr = self.network(data_gt)
         results.update(data_pr)
         for loss in self.losses:
-            results.update(loss(data_pr,data_gt,data_gt['step']))
+            results.update(loss(data_pr, data_gt, data_gt['step']))
         return results
 
+
 class DummyLoss:
-    def __init__(self,losses):
-        self.keys=[]
+    def __init__(self, losses):
+        self.keys = []
         for loss in losses:
-            self.keys+=loss.keys
+            self.keys += loss.keys
 
     def __call__(self, data_pr, data_gt, step):
         return {key: data_pr[key] for key in self.keys}
