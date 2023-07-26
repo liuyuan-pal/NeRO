@@ -1,7 +1,7 @@
 # NeRO for Blender Dataset
 
 NeRO: Neural Geometry and BRDF Reconstruction of Reflective Objects from Multiview Images
-![](C:/Git_Project/Contribution/NeRO/assets/teaser.jpg)
+![](assets/teaser.jpg)
 
 ## [Project page](https://liuyuan-pal.github.io/NeRO/) | [Paper](https://arxiv.org/abs/2305.17398)
 
