@@ -126,13 +126,18 @@ class GlossyRealDatabase(BaseDatabase):
 
                 cam_id = image.camera_id
                 camera = cameras[cam_id]
+
                 if camera.model == 'SIMPLE_RADIAL':
                     f, cx, cy, _ = camera.params
+                    self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
                 elif camera.model == 'SIMPLE_PINHOLE':
                     f, cx, cy = camera.params
+                    self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
+                elif camera.model == 'PINHOLE':
+                    fx, fy, cx, cy = camera.params
+                    self.Ks[img_id] = np.asarray([[fx, 0, cx], [0, fy, cy], [0, 0, 1], ], np.float32)
                 else:
                     raise NotImplementedError
-                self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
 
             save_pickle([self.poses, self.Ks, self.image_names, self.img_ids],f'{self.root}/cache.pkl')
 
@@ -305,11 +310,15 @@ class CustomDatabase(BaseDatabase):
                 camera = cameras[cam_id]
                 if camera.model == 'SIMPLE_RADIAL':
                     f, cx, cy, _ = camera.params
+                    self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
                 elif camera.model == 'SIMPLE_PINHOLE':
                     f, cx, cy = camera.params
+                    self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
+                elif camera.model == 'PINHOLE':
+                    fx, fy, cx, cy = camera.params
+                    self.Ks[img_id] = np.asarray([[fx, 0, cx], [0, fy, cy], [0, 0, 1], ], np.float32)
                 else:
                     raise NotImplementedError
-                self.Ks[img_id] = np.asarray([[f, 0, cx], [0, f, cy], [0, 0, 1], ], np.float32)
 
             save_pickle([self.poses, self.Ks, self.image_names, self.img_ids],f'{self.root}/cache.pkl')
 
