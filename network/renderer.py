@@ -269,25 +269,20 @@ class NeROShapeRenderer(nn.Module):
 
     def nvs(self, pose, K, h, w):
         device = 'cuda'
-        K = torch.from_numpy(K.astype(np.float32)).unsqueeze(0).to(device)
-        pose = torch.from_numpy(pose.astype(np.float32)).unsqueeze(0).to(device)
-
-        coords = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1)[:, :, (1, 0)]  # h,w,2
-        coords = coords.to(device)
-        coords = coords.float()[None, :, :, :].repeat(1, 1, 1, 1)  # 1,h,w,2
-        coords = coords.reshape(1, h * w, 2)
-        coords = torch.cat([coords + 0.5, torch.ones(1, h * w, 1, dtype=torch.float32, device=device)], 2)  # 1,h*w,3
-
-        # 1,h*w,3 @ imn,3,3 => 1,h*w,3
-        dirs = coords @ torch.inverse(K).permute(0, 2, 1)
-        idxs = torch.arange(1, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # 1,h*w,1
-
+        K = torch.from_numpy(K.astype(np.float32))
+        pose = torch.from_numpy(pose.astype(np.float32))
+        is_nerf = self.is_nerf
         rn = h * w
-        ray_batch = {
-            'dirs': dirs.float().reshape(rn, 3).to(device),
-            'idxs': idxs.long().reshape(rn, 1).to(device),
+
+        imgs_info = {
+            'imgs': torch.zeros((1, 3, h, w), dtype=torch.float32),
+            'Ks': K.unsqueeze(0),
+            'poses': pose.unsqueeze(0),
         }
 
+        ray_batch, _, _, _, _ = self._construct_nerf_ray_batch(imgs_info, device=device, is_train=False) \
+            if is_nerf else self._construct_ray_batch(imgs_info, device=device)
+        
         trn = 1024
         output_color = []
         for ri in range(0, rn, trn):
@@ -295,8 +290,8 @@ class NeROShapeRenderer(nn.Module):
             for k, v in ray_batch.items(): cur_ray_batch[k] = v[ri:ri + trn]
 
             with torch.no_grad():
-                rays_o, rays_d, near, far, human_poses = self._process_ray_batch(cur_ray_batch, pose)
-                cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=300000)
+                rays_o, rays_d, near, far, human_poses = self._process_nerf_ray_batch(cur_ray_batch, imgs_info['poses']) if is_nerf else self._process_ray_batch(cur_ray_batch, imgs_info['poses'])
+                cur_outputs = self.render(rays_o, rays_d, near, far, human_poses, 0, 0, is_train=False, step=300000, is_nerf=is_nerf)
                 output_color.append(cur_outputs['ray_rgb'].detach().cpu().numpy())
 
         output_color = np.reshape(np.concatenate(output_color, 0), [h, w, 3])
