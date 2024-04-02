@@ -12,6 +12,7 @@ from network.field import SDFNetwork, SingleVarianceNetwork, NeRFNetwork, AppSha
     extract_geometry, sample_pdf, MCShadingNetwork
 from utils.base_utils import color_map_forward, downsample_gaussian_blur
 from utils.raw_utils import linear_to_srgb
+import trimesh
 
 def build_imgs_info(database:BaseDatabase, img_ids):
     images = [database.get_image(img_id) for img_id in img_ids]
@@ -673,6 +674,8 @@ class NeROMaterialRenderer(nn.Module):
     def _init_geometry(self):
         self.mesh = open3d.io.read_triangle_mesh(self.cfg['mesh'])
         self.ray_tracer = raytracing.RayTracer(np.asarray(self.mesh.vertices), np.asarray(self.mesh.triangles))
+        ##Edit for material weights to texture map extraction
+        self.tri_mesh = trimesh.load(self.cfg['mesh'], force='mesh', skip_material=True, process=False)
 
     def _init_dataset(self, is_train):
         # train/test split

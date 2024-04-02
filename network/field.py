@@ -921,6 +921,16 @@ class MCShadingNetwork(nn.Module):
         albedo = self.albedo_predictor(torch.cat([feats, pts], -1))
         return metallic, roughness, albedo
 
+    ##Edit for material weights to texture map extraction
+    def predict_materials_n2m(self, pts):
+        feats = self.feats_network(pts)
+        metallic = self.metallic_predictor(torch.cat([feats, pts], -1))
+        roughness = self.roughness_predictor(torch.cat([feats, pts], -1))
+        rmax, rmin = 1.0, 0.04**2
+        roughness = roughness * (rmax - rmin) + rmin
+        albedo = self.albedo_predictor(torch.cat([feats, pts], -1))
+        return torch.cat([albedo, metallic, roughness], dim=1)
+
     def distribution_ggx(self, NoH, roughness):
         a = roughness
         a2 = a**2
