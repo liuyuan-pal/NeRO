@@ -27,7 +27,13 @@ def contract(xyzs):
     return xyzs
 
 def texture_mapper(path = 'n2m_test', h0=1024, w0=1024):
-
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Created directory: {path}")
+    else:
+        print(f"Directory already exists: {path}")
+    
     ##Original Network Settings
     cfg = load_cfg(flags.cfg)
     network = NeROMaterialRenderer(cfg, False)
