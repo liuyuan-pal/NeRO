@@ -10,3 +10,5 @@ tqdm
 opencv-python
 pyyaml
 scikit-image
+trimesh
+xatlas
