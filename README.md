@@ -8,6 +8,8 @@ NeRO: Neural Geometry and BRDF Reconstruction of Reflective Objects from Multivi
 
 2023.07.26 Thanks @[ingra14m](https://github.com/ingra14m) for adding support for the NeRF-blender datasets (ShinyObject/NeRF-Synthetic). These codes are included in the `nerf-syn` branch https://github.com/liuyuan-pal/NeRO/tree/nerf-syn. Welcome to try it!
 
+2024.04.14 Thanks @[bell-one](https://github.com/bell-one) for adding a material extraction module. Now we can extract the materials to UV maps instead of defining them on the vertices. Check out [extract_materials_texture_map.py](extract_materials_texture_map.py) for this function!
+
 ## Usage
 ### Setup
 1. Install basic required packages.
