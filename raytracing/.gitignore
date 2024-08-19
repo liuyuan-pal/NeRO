@@ -1,0 +1,6 @@
+__pycache__/
+build/
+*.egg-info/
+*.so
+.vs/
+*.ply

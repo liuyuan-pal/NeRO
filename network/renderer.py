@@ -165,7 +165,13 @@ class NeROShapeRenderer(nn.Module):
             self.train_batch[k] = v[shuffle_idxs]
 
     def _construct_ray_batch(self, imgs_info, device='cpu'):
-        imn, _, h, w = imgs_info['imgs'].shape
+        print("Shape of imgs_info['imgs']:", imgs_info['imgs'].shape)
+        imn, c, h, w = imgs_info['imgs'].shape
+        #imn, _, h, w = imgs_info['imgs'].shape
+        print(f"imn: {imn}, c: {c}, h: {h}, w: {w}")
+        print(f"Calculated size: {imn * h * w * 3}")
+        print(f"Actual size: {imgs_info['imgs'].numel()}")
+        
         coords = torch.stack(torch.meshgrid(torch.arange(h), torch.arange(w)), -1)[:, :, (1, 0)]  # h,w,2
         coords = coords.to(device)
         coords = coords.float()[None, :, :, :].repeat(imn, 1, 1, 1)  # imn,h,w,2
@@ -174,7 +180,9 @@ class NeROShapeRenderer(nn.Module):
 
         # imn,h*w,3 @ imn,3,3 => imn,h*w,3
         dirs = coords @ torch.inverse(imgs_info['Ks']).permute(0, 2, 1)
-        imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
+        #imgs = imgs_info['imgs'].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
+        imgs = imgs_info['imgs'][:, :3, :, :].permute(0, 2, 3, 1).reshape(imn, h * w, 3)  # imn,h*w,3
+
         idxs = torch.arange(imn, dtype=torch.int64, device=device)[:, None, None].repeat(1, h * w, 1)  # imn,h*w,1
         poses = imgs_info['poses']  # imn,3,4
 
@@ -744,7 +752,10 @@ class NeROMaterialRenderer(nn.Module):
             cam_cen[..., 2] = 0
 
         Y = torch.zeros([1, 3], device='cpu').expand(pn, 3)
-        Y[:, 2] = -1.0
+        Y_new = Y.clone()
+        Y_new[:, 2] = -1.0
+        Y = Y_new
+        
         Z = torch.clone(poses[:, 2, :3])  # pn, 3
         Z[:, 2] = 0
         Z = F.normalize(Z, dim=-1)
@@ -906,9 +917,13 @@ class NeROMaterialRenderer(nn.Module):
         for vi in range(0, verts.shape[0], batch_size):
             m, r, a = self.shader_network.predict_materials(verts[vi:vi+batch_size])
             r = torch.sqrt(torch.clamp(r, min=1e-7)) # note: we assume predictions are squared roughness!!!
-            metallic.append(m.cpu().numpy())
-            roughness.append(r.cpu().numpy())
-            albedo.append(a.cpu().numpy())
+            # metallic.append(m.cpu().numpy())
+            # roughness.append(r.cpu().numpy())
+            # albedo.append(a.cpu().numpy())
+
+            metallic.append(m.cpu().detach().numpy())  # Add .detach()
+            roughness.append(r.cpu().detach().numpy())  # Add .detach()
+            albedo.append(a.cpu().detach().numpy())  # Add .detach()
 
         return {'metallic': np.concatenate(metallic, 0),
                 'roughness': np.concatenate(roughness, 0),

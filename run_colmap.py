@@ -91,7 +91,7 @@ def run_sfm(image_dir, project_dir, same_camera=False, colmap_path='$HOME/code/c
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--project_dir', type=str)
-    parser.add_argument('--colmap', type=str)
+    parser.add_argument('--colmap', type=str, default='colmap')
     parser.add_argument('--same_camera', action='store_true', default=False, dest='same_camera')
     args = parser.parse_args()
     image_dir = f'{args.project_dir}/images'

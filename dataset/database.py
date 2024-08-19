@@ -222,7 +222,7 @@ class GlossyRealDatabase(BaseDatabase):
     def get_depth(self, img_id):
         img = self.get_image(img_id)
         h, w, _ = img.shape
-        return np.ones([h,w],np.float32), np.ones([h, w], np.bool)
+        return np.ones([h, w], np.float32), np.ones([h, w], bool)
 
 class GlossySyntheticDatabase(BaseDatabase):
     def __init__(self, database_name):
@@ -405,7 +405,7 @@ class CustomDatabase(BaseDatabase):
     def get_depth(self, img_id):
         img = self.get_image(img_id)
         h, w, _ = img.shape
-        return np.ones([h,w],np.float32), np.ones([h, w], np.bool)
+        return np.ones([h, w], np.float32), np.ones([h, w], bool)
 
 def parse_database_name(database_name:str)->BaseDatabase:
     name2database={
