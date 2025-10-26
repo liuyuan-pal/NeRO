@@ -10,6 +10,8 @@ NeRO: Neural Geometry and BRDF Reconstruction of Reflective Objects from Multivi
 
 2024.04.14 Thanks @[bell-one](https://github.com/bell-one) for adding a material extraction module. Now we can extract the materials to UV maps instead of defining them on the vertices. Check out [extract_materials_texture_map.py](extract_materials_texture_map.py) for this function!
 
+2025.10.27 Note all OneDrive links are broken and you may find resources [here](https://drive.google.com/drive/folders/1arqYrMxfPc7ZOCSwgZxgLjBRDZ_8leGV?usp=sharing).
+
 ## Usage
 ### Setup
 1. Install basic required packages.
@@ -163,3 +165,4 @@ We thank all the authors for sharing great codes.
   year={2023}
 }
 ```
+
